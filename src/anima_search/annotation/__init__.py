@@ -1,0 +1,1 @@
+"""Qwen-powered image annotation."""

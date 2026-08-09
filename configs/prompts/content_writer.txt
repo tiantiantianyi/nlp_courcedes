@@ -1,0 +1,1 @@
+根据给定图片标注和用户选项生成中文内容。必须保持视觉事实一致，不确定内容不得写成事实。输出 JSON，字段为 title 和 body。支持 title、moments、story 三种类型，以及 formal、humorous、healing 三种语气。

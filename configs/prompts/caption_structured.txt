@@ -1,0 +1,1 @@
+观察图片并仅输出一个 JSON 对象。字段必须包含 summary、objects、actions、scene、attributes、spatial_relations、style、mood、colors、ocr_text、search_queries、generation_prompt、uncertainty。search_queries 至少给出 3 条中文自然语言搜图查询。不可确认的身份、地点、品牌和文字必须放入 uncertainty，不要编造。

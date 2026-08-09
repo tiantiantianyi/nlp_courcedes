@@ -1,0 +1,81 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import yaml
+
+from anima_search.annotation.qwen_client import QwenVLClient
+from anima_search.app.service import SearchService
+from anima_search.config import load_config, resolve_path
+from anima_search.generation.sd_generator import StableDiffusionGenerator
+from anima_search.indexing.bm25_index import BM25Index
+from anima_search.indexing.image_vector_index import ImageVectorIndex
+from anima_search.indexing.index_manifest import (
+    load_index_manifest,
+    validate_index_manifest,
+)
+from anima_search.indexing.vector_index import VectorIndex
+from anima_search.retrieval.query_parser import QueryParser
+from anima_search.retrieval.search import HybridSearcher
+from anima_search.runtime.model_manager import ModelManager
+from anima_search.schemas import ImageAnnotation
+
+
+def create_service(config_path: str = "configs/default.yaml", split: str = "val") -> SearchService:
+    config = load_config(config_path)
+    artifacts = resolve_path(config, config["data"]["artifacts_dir"])
+    index_dir = artifacts / "indexes" / split
+    annotations_list = [ImageAnnotation.model_validate(item) for item in json.loads((index_dir / "annotations.json").read_text(encoding="utf-8"))]
+    annotations = {item.image_id: item for item in annotations_list}
+    indexes: dict[str, object] = {}
+    enabled = set(config["retrieval"].get("enabled_branches", ["image", "text", "bm25"]))
+    if "bm25" in enabled and (index_dir / "bm25.pkl").is_file():
+        indexes["bm25"] = BM25Index.load(index_dir / "bm25.pkl")
+    text_dir = index_dir / "text"
+    if not text_dir.is_dir() and (index_dir / "vector").is_dir():
+        text_dir = index_dir / "vector"
+    if "text" in enabled and text_dir.is_dir():
+        text_index = VectorIndex.load(
+            text_dir,
+            model_path=resolve_path(config, config["models"]["embedder"]),
+            device=config["runtime"]["device"],
+        )
+        indexes["text"] = text_index
+    if "image" in enabled and (index_dir / "image").is_dir():
+        image_index = ImageVectorIndex.load(
+            index_dir / "image",
+            model_path=resolve_path(config, config["models"]["image_embedder"]),
+            device=config["runtime"]["device"],
+            dtype=config["runtime"]["dtype"],
+        )
+        indexes["image"] = image_index
+    if not indexes:
+        raise FileNotFoundError(f"no enabled retrieval indexes found under {index_dir}")
+
+    manifest_path = index_dir / "manifest.json"
+    if manifest_path.is_file():
+        manifest = load_index_manifest(manifest_path)
+        required = enabled.intersection(manifest.get("active_branches", []))
+        missing = required - set(indexes)
+        if missing:
+            raise FileNotFoundError(f"index manifest branches are missing on disk: {sorted(missing)}")
+        branch_ids = {name: list(index.image_ids) for name, index in indexes.items()}
+        validate_index_manifest(manifest, [item.image_id for item in annotations_list], branch_ids)
+
+    aliases_path = resolve_path(config, config["retrieval"].get("aliases", "configs/retrieval_aliases.yaml"))
+    aliases = yaml.safe_load(aliases_path.read_text(encoding="utf-8")) if aliases_path.is_file() else {}
+    manager = ModelManager(
+        lambda: QwenVLClient(resolve_path(config, config["models"]["qwen_vl"]),
+            config["runtime"]["dtype"], config["runtime"]["device"],
+            config["runtime"]["max_image_pixels"]),
+        lambda: StableDiffusionGenerator(resolve_path(config, config["models"]["stable_diffusion"]),
+            config["runtime"]["dtype"], config["runtime"]["device"]))
+    prompt_dir = Path(config["project_root"]) / "configs" / "prompts"
+    parser = QueryParser(None, (prompt_dir / "query_parser.txt").read_text(encoding="utf-8"), aliases)
+    searcher = HybridSearcher(annotations, rrf_k=config["retrieval"]["rrf_k"],
+                              indexes=indexes, aliases=aliases)
+    return SearchService(config, parser, searcher, manager, annotations,
+        (prompt_dir / "reranker.txt").read_text(encoding="utf-8"),
+        (prompt_dir / "content_writer.txt").read_text(encoding="utf-8"),
+        (prompt_dir / "sd_prompt.txt").read_text(encoding="utf-8"))

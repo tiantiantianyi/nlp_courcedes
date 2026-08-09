@@ -1,0 +1,17 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+artifacts/annotations/
+artifacts/indexes/
+artifacts/checkpoints/
+artifacts/generated/
+artifacts/cache/
+models/
+Qwen--Qwen3-VL-2B-Instruct/
+stablediffusion
+Train/
+Val/
