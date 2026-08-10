@@ -33,6 +33,11 @@ class QwenVLClient:
     def load(self) -> None:
         if self.model is not None:
             return
+        if not self.model_path.is_dir():
+            raise FileNotFoundError(
+                f"Qwen-VL model directory does not exist: {self.model_path}; "
+                "download it locally or update models.qwen_vl in configs/default.yaml"
+            )
         import torch
         from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 
@@ -41,7 +46,10 @@ class QwenVLClient:
         kwargs = {"torch_dtype": dtype, "local_files_only": True}
         if self.device == "cuda":
             kwargs["device_map"] = "auto"
-        self.model = Qwen3VLForConditionalGeneration.from_pretrained(self.model_path, **kwargs).eval()
+        self.model = Qwen3VLForConditionalGeneration.from_pretrained(
+            self.model_path,
+            **kwargs,
+        ).eval()
         if self.device != "cuda":
             self.model.to(self.device)
 
@@ -50,6 +58,7 @@ class QwenVLClient:
         self.processor = None
         try:
             import torch
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except ImportError:
@@ -58,6 +67,7 @@ class QwenVLClient:
     def generate(self, image: Image.Image, prompt: str, max_new_tokens: int = 1024) -> str:
         self.load()
         import torch
+
         if torch.cuda.is_available() and self.device == "cuda":
             torch.cuda.reset_peak_memory_stats()
         original_size = image.size
@@ -65,8 +75,14 @@ class QwenVLClient:
         messages = [{"role": "user", "content": [
             {"type": "image", "image": rgb}, {"type": "text", "text": prompt},
         ]}]
-        text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = self.processor(text=[text], images=[rgb], return_tensors="pt").to(self.model.device)
+        text = self.processor.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        inputs = self.processor(text=[text], images=[rgb], return_tensors="pt").to(
+            self.model.device
+        )
         output = self.model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
@@ -81,19 +97,33 @@ class QwenVLClient:
             "input_height": rgb.height,
         }
         if torch.cuda.is_available() and self.device == "cuda":
-            self.last_generation_metadata["peak_vram_bytes"] = int(torch.cuda.max_memory_allocated())
+            self.last_generation_metadata["peak_vram_bytes"] = int(
+                torch.cuda.max_memory_allocated()
+            )
         return self.processor.batch_decode(trimmed, skip_special_tokens=True)[0]
 
     def generate_text(self, prompt: str, max_new_tokens: int = 512) -> str:
         self.load()
         import torch
+
         if torch.cuda.is_available() and self.device == "cuda":
             torch.cuda.reset_peak_memory_stats()
         messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
-        text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        text = self.processor.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
         inputs = self.processor(text=[text], return_tensors="pt").to(self.model.device)
-        output = self.model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+        output = self.model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+        )
         trimmed = [tokens[len(source):] for source, tokens in zip(inputs.input_ids, output)]
-        self.last_generation_metadata = {"peak_vram_bytes": int(torch.cuda.max_memory_allocated())} \
-            if torch.cuda.is_available() and self.device == "cuda" else {}
+        self.last_generation_metadata = (
+            {"peak_vram_bytes": int(torch.cuda.max_memory_allocated())}
+            if torch.cuda.is_available() and self.device == "cuda"
+            else {}
+        )
         return self.processor.batch_decode(trimmed, skip_special_tokens=True)[0]

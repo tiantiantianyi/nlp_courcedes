@@ -35,10 +35,17 @@ class VisualReranker:
         for item in candidates:
             try:
                 with Image.open(self.project_root / item.relative_path) as image:
-                    raw = self.client.generate(image.copy(),
+                    raw = self.client.generate(
+                        image.copy(),
                         f"{self.prompt}\n用户查询：{query}\n当前 image_id：{item.image_id}",
-                        max_new_tokens=self.max_new_tokens)
+                        max_new_tokens=self.max_new_tokens,
+                    )
                 payload = extract_json_object(raw)
+                response_image_id = str(payload.get("image_id", "")).strip()
+                if response_image_id and response_image_id != item.image_id:
+                    raise ValueError(
+                        f"reranker image_id {response_image_id!r} does not match {item.image_id!r}"
+                    )
                 score = min(100.0, max(0.0, float(payload.get("score", 0.0))))
                 item.rerank_score = score
                 item.evidence = _string_list(payload.get("evidence"))
@@ -47,6 +54,12 @@ class VisualReranker:
                 item.rerank_score = 0.0
                 item.mismatch = [f"视觉重排不可用：{type(exc).__name__}"]
                 score = 0.0
-            combined = self.rrf_weight * (item.fused_score / max_rrf) + self.vlm_weight * (score / 100.0)
+            combined = (
+                self.rrf_weight * (item.fused_score / max_rrf)
+                + self.vlm_weight * (score / 100.0)
+            )
             scored.append((combined, item))
-        return [item for _, item in sorted(scored, key=lambda pair: (-pair[0], pair[1].image_id))]
+        return [
+            item
+            for _, item in sorted(scored, key=lambda pair: (-pair[0], pair[1].image_id))
+        ]

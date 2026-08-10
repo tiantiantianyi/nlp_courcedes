@@ -1,0 +1,29 @@
+name: vlm-course
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip>=24
+  - numpy>=2,<3
+  - pillow>=12,<13
+  - pydantic>=2,<3
+  - pyyaml>=6,<7
+  - pytest>=9,<10
+  - scikit-learn>=1.7,<2
+  - pandas>=2.3,<4
+  - matplotlib>=3.10,<4
+  - seaborn>=0.13,<0.14
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu128
+      - torch>=2.6,<3
+      - torchvision>=0.21,<1
+      - accelerate>=1.12,<2
+      - faiss-cpu>=1.12,<2
+      - gradio>=6,<7
+      - jieba>=0.42,<0.43
+      - rank-bm25>=0.2,<0.3
+      - sentence-transformers>=5,<6
+      - transformers>=5,<6
+      - diffusers>=0.36,<0.40
+      - modelscope>=1.33,<2
+      - typeguard>=4,<5

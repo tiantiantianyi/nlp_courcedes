@@ -17,10 +17,16 @@ def main() -> None:
     parser.add_argument("query")
     parser.add_argument("--config", default="configs/default.yaml")
     parser.add_argument("--split", choices=["train", "val"], default="val")
+    parser.add_argument(
+        "--branches",
+        nargs="+",
+        choices=["image", "text", "bm25"],
+        help="override enabled branches, for example: --branches image",
+    )
     parser.add_argument("--rerank", action="store_true")
     args = parser.parse_args()
 
-    service = create_service(args.config, args.split)
+    service = create_service(args.config, args.split, args.branches)
     results = service.search(args.query, args.rerank)
     print(
         json.dumps(

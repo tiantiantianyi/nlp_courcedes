@@ -29,6 +29,7 @@ class ImageAnnotation(BaseModel):
     duplicate_of: str | None = None
     summary: str = Field(min_length=1)
     objects: list[str] = Field(default_factory=list)
+    object_counts: dict[str, int] = Field(default_factory=dict)
     actions: list[str] = Field(default_factory=list)
     scene: str
     attributes: list[str] = Field(default_factory=list)
@@ -56,9 +57,14 @@ class SearchQuery(BaseModel):
     objects: list[str] = Field(default_factory=list)
     actions: list[str] = Field(default_factory=list)
     scene: list[str] = Field(default_factory=list)
+    time_of_day: list[str] = Field(default_factory=list)
+    weather: list[str] = Field(default_factory=list)
     mood: list[str] = Field(default_factory=list)
     colors: list[str] = Field(default_factory=list)
     style: list[str] = Field(default_factory=list)
+    count_target: str | None = None
+    count_value: int | None = Field(default=None, ge=0)
+    count_operator: Literal["eq", "gte", "lte"] | None = None
     required_terms: list[str] = Field(default_factory=list)
     excluded_terms: list[str] = Field(default_factory=list)
     ocr_terms: list[str] = Field(default_factory=list)

@@ -17,7 +17,11 @@ class FilterDecision:
 
 class AnnotationFilter:
     def __init__(self, aliases: dict | None = None) -> None:
-        self.catalog = AliasCatalog(aliases)
+        payload = aliases or {}
+        self.catalog = AliasCatalog(payload)
+        self.positive_filter_mode = str(payload.get("positive_filter_mode", "hybrid"))
+        if self.positive_filter_mode not in {"soft", "hard", "hybrid"}:
+            raise ValueError("positive_filter_mode must be soft, hard, or hybrid")
 
     def _term_matches_values(self, term: str, values: list[str]) -> bool:
         aliases = [normalize_text(value) for value in self.catalog.expand(term)]
@@ -32,6 +36,20 @@ class AnnotationFilter:
         fields = annotation_fields(annotation)
         names = [preferred_field] if preferred_field in fields else list(fields)
         return [name for name in names if self._term_matches_values(term, fields[name])]
+
+    def _count_for(self, annotation: ImageAnnotation, target: str) -> int | None:
+        for name, count in annotation.object_counts.items():
+            if self._term_matches_values(target, [name]):
+                return count
+        return None
+
+    @staticmethod
+    def _count_matches(actual: int, expected: int, operator: str) -> bool:
+        if operator == "gte":
+            return actual >= expected
+        if operator == "lte":
+            return actual <= expected
+        return actual == expected
 
     def evaluate(self, annotation: ImageAnnotation, query: SearchQuery) -> FilterDecision:
         decision = FilterDecision()
@@ -60,20 +78,44 @@ class AnnotationFilter:
                 decision.allowed = False
                 decision.mismatch.append(f"OCR未命中:{term}")
 
+        if query.count_target is not None and query.count_value is not None:
+            actual = self._count_for(annotation, query.count_target)
+            operator = query.count_operator or "eq"
+            if actual is not None and self._count_matches(actual, query.count_value, operator):
+                decision.matched_fields.append("object_counts")
+                decision.evidence.append(
+                    f"数量命中:{query.count_target}={actual}({operator}{query.count_value})"
+                )
+            else:
+                decision.allowed = False
+                decision.mismatch.append(
+                    f"数量不匹配:{query.count_target}={actual}({operator}{query.count_value})"
+                )
+
         structured = {
             "objects": query.objects,
             "actions": query.actions,
             "scene": query.scene,
+            "time_of_day": query.time_of_day,
+            "weather": query.weather,
             "mood": query.mood,
             "colors": query.colors,
             "style": query.style,
         }
+        fields = annotation_fields(annotation)
         for field_name, terms in structured.items():
-            values = annotation_fields(annotation).get(field_name, [])
+            values = fields.get(field_name, [])
             for term in terms:
-                if term not in query.excluded_terms and self._term_matches_values(term, values):
+                if term in query.excluded_terms:
+                    continue
+                if self._term_matches_values(term, values):
                     decision.matched_fields.append(field_name)
                     decision.evidence.append(f"{field_name}命中:{term}")
+                elif values and (self.positive_filter_mode == "hard" or (
+                    self.positive_filter_mode == "hybrid" and field_name in {"time_of_day", "weather"})
+                ):
+                    decision.allowed = False
+                    decision.mismatch.append(f"{field_name}未命中:{term}")
 
         decision.matched_fields = unique_strings(decision.matched_fields)
         decision.evidence = unique_strings(decision.evidence)

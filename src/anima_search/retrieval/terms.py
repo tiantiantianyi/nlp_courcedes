@@ -60,7 +60,7 @@ class AliasCatalog:
         normalized = normalize_text(text)
         for exception in self.negative_exceptions:
             normalized = normalized.replace(normalize_text(exception), "")
-        candidates = self.fields.get(field, list(self.aliases)) if field else list(self.aliases)
+        candidates = self.fields.get(field, []) if field else list(self.aliases)
         found = []
         for canonical in candidates:
             if any(normalize_text(alias) in normalized for alias in self.expand(canonical)):
