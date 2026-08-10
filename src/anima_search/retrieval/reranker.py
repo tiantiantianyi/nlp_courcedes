@@ -52,7 +52,7 @@ class VisualReranker:
                 item.mismatch = _string_list(payload.get("mismatch"))
             except Exception as exc:
                 item.rerank_score = 0.0
-                item.mismatch = [f"视觉重排不可用：{type(exc).__name__}"]
+                item.mismatch = [f"视觉重排不可用：{type(exc).__name__}: {exc}"]
                 score = 0.0
             combined = (
                 self.rrf_weight * (item.fused_score / max_rrf)

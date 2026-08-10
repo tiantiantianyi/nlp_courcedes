@@ -27,7 +27,7 @@ retrieval:
   aliases: configs/retrieval_aliases.yaml
   query_parser_use_llm: false
   rerank_default: false
-  rerank_max_new_tokens: 128
+  rerank_max_new_tokens: 256
 generation:
   width: 512
   height: 512

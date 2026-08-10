@@ -65,7 +65,7 @@ def test_visual_reranker_records_explicit_degradation(tmp_path: Path):
         "高速公路", [_candidate("1.jpg")]
     )[0]
     assert result.rerank_score == 0.0
-    assert result.mismatch == ["视觉重排不可用：RuntimeError"]
+    assert result.mismatch == ["视觉重排不可用：RuntimeError: offline"]
 
 
 def test_visual_reranker_rejects_mismatched_image_id(tmp_path: Path):
@@ -80,4 +80,4 @@ def test_visual_reranker_rejects_mismatched_image_id(tmp_path: Path):
     )[0]
     assert result.rerank_score == 0.0
     assert result.evidence == []
-    assert result.mismatch == ["视觉重排不可用：ValueError"]
+    assert result.mismatch == ["视觉重排不可用：ValueError: reranker image_id 'train-999' does not match 'train-1'"]

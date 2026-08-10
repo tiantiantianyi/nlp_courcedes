@@ -24,6 +24,7 @@ artifacts/checkpoints/
 artifacts/generated/
 artifacts/cache/
 artifacts/evaluation/
+artifacts/routing/
 artifacts/mock/
 outputs/
 runs/

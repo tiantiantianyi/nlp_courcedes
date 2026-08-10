@@ -1,0 +1,12 @@
+{"query_id":"m6-q01","text":"夜晚的城市街道","category":"simple"}
+{"query_id":"m6-q02","text":"绿色植物和自然风景","category":"simple"}
+{"query_id":"m6-q03","text":"雨夜城市街道","category":"compositional"}
+{"query_id":"m6-q04","text":"蓝天下的现代高楼","category":"compositional"}
+{"query_id":"m6-q05","text":"没有人物的室内场景","category":"negative"}
+{"query_id":"m6-q06","text":"没有汽车的自然风景","category":"negative"}
+{"query_id":"m6-q07","text":"道路上有多辆汽车","category":"count"}
+{"query_id":"m6-q08","text":"一群人在户外活动","category":"count"}
+{"query_id":"m6-q09","text":"带有中文招牌的街景","category":"ocr"}
+{"query_id":"m6-q10","text":"道路旁有数字标牌","category":"ocr"}
+{"query_id":"m6-q11","text":"暖色灯光下的建筑","category":"compositional"}
+{"query_id":"m6-q12","text":"水边的开阔风景","category":"simple"}
