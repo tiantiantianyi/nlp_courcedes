@@ -25,6 +25,7 @@ artifacts/generated/
 artifacts/cache/
 artifacts/evaluation/
 artifacts/routing/
+artifacts/directory_runs/
 artifacts/mock/
 outputs/
 runs/

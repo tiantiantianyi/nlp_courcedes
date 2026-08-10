@@ -19,6 +19,51 @@
 | image-only | 需要 | 不需要 | image 分支 | Chinese-CLIP | 无标注图文检索 |
 | full annotation | 需要 | 需要 | image/text/BM25 | 对应编码器，可选 Qwen | 正式检索和评测 |
 
+### 任意图片目录一键运行
+
+根目录的 `run.py` 和 `scripts/run_all.sh` 对应技术方案要求的隐藏测试集入口。默认 `full` 模式按顺序执行：
+
+```text
+目录扫描 → manifest → M0 场景路由 → M1 场景专用标注
+→ M3 image/text/BM25 索引 → M4–M7 可运行服务
+```
+
+先查看执行计划，不加载模型或写产物：
+
+```bash
+python run.py --input_dir /absolute/path/to/images --dry-run --launch
+```
+
+无正式标注时只构建 Chinese-CLIP 图像索引：
+
+```bash
+python run.py \
+  --input_dir /absolute/path/to/images \
+  --mode image-only --launch
+```
+
+完整自动标注和三路索引：
+
+```bash
+python run.py --input_dir /absolute/path/to/images --mode full --launch
+```
+
+中断后使用相同参数继续：
+
+```bash
+python run.py --input_dir /absolute/path/to/images --mode full --launch --resume
+```
+
+小规模冒烟可增加 `--limit 5`。默认工作区位于 `artifacts/directory_runs/`，也可以用 `--workspace` 指定隔离目录。程序不会覆盖已有运行状态；必须显式使用 `--resume` 或换一个工作区。
+
+等价 shell 入口：
+
+```bash
+scripts/run_all.sh --input_dir /absolute/path/to/images --mode full --launch
+```
+
+M7 阶段演示录制步骤见 [`docs/M7_RECORDING_GUIDE.md`](docs/M7_RECORDING_GUIDE.md)。
+
 ## 2. 环境：Pixi 或 Conda 二选一
 
 Pixi 可以理解为“Conda 环境管理 + 锁文件 + 项目任务”。`pixi.toml` 是环境定义，`pixi.lock` 是精确版本锁；只有执行 `pixi install` 后生成 `.pixi/`，才表示本机真正安装了项目环境。
