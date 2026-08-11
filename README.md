@@ -212,9 +212,10 @@ python scripts/launch_app.py --split val --port 7860
 python scripts/search_cli.py "雨夜城市" --split val --rerank
 ```
 
-## 7. M6 pointwise 基准
+## 7. M6 pointwise/listwise 基准
 
-M6 不需要 relevance 标注，但需要可查询的索引、候选原图和 Qwen-VL：
+M6 不需要 relevance 标注，但需要可查询的索引、候选原图和 Qwen-VL。原有
+pointwise Top-3/5 基准：
 
 ```bash
 python scripts/benchmark_reranker.py "雨夜城市" \
@@ -222,7 +223,18 @@ python scripts/benchmark_reranker.py "雨夜城市" \
   --output artifacts/evaluation/reranker_top3.jsonl
 ```
 
-`--top-k` 支持 3 或 5。输出包括逐候选延迟、总延迟、失败率、重排分数和可用时的 CUDA 峰值显存，同时明确声明：没有 relevance judgments 时不评价质量提升。
+Top-20 pointwise 与单张 contact sheet listwise 对照：
+
+```bash
+python scripts/benchmark_listwise_top20.py \
+  --config configs/benchmark_8gb.yaml \
+  --top-k 20 --query-limit 3 --repeats 1
+```
+
+输出包括模型调用次数、查询延迟、硬失败率、部分回退率和 CUDA 峰值显存。
+没有人工 relevance judgments 时不评价排序质量提升。RTX 4060 Laptop 8GB 的
+实跑结果和边界见
+[`docs/M6_LISTWISE_TOP20_2026-08-11.md`](docs/M6_LISTWISE_TOP20_2026-08-11.md)。
 
 ## 8. 正式评测和 A5 消融
 

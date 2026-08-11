@@ -90,19 +90,42 @@ class SearchService:
         if not use_reranker:
             return results[:settings["result_count"]]
 
+        from anima_search.retrieval.listwise_reranker import ListwiseVisualReranker
         from anima_search.retrieval.reranker import VisualReranker
 
         self.release_retrieval_encoders()
         self._model_path("qwen_vl", "Qwen-VL")
         with self.manager.qwen_session() as qwen:
-            reranker = VisualReranker(
-                qwen,
-                self.reranker_prompt,
-                Path(self.config["project_root"]),
-                settings["rrf_weight"],
-                settings["vlm_weight"],
-                settings.get("rerank_max_new_tokens", 128),
-            )
+            method = settings.get("rerank_method", "pointwise")
+            project_root = Path(self.config["project_root"])
+            if method == "pointwise":
+                reranker = VisualReranker(
+                    qwen,
+                    self.reranker_prompt,
+                    project_root,
+                    settings["rrf_weight"],
+                    settings["vlm_weight"],
+                    settings.get("rerank_max_new_tokens", 128),
+                )
+            elif method == "listwise":
+                prompt_path = project_root / settings.get(
+                    "rerank_listwise_prompt",
+                    "configs/prompts/reranker_listwise.txt",
+                )
+                reranker = ListwiseVisualReranker(
+                    qwen,
+                    prompt_path.read_text(encoding="utf-8"),
+                    project_root,
+                    max_new_tokens=settings.get(
+                        "rerank_listwise_max_new_tokens", 768
+                    ),
+                    columns=settings.get("rerank_listwise_columns", 5),
+                    tile_size=settings.get("rerank_listwise_tile_size", 192),
+                )
+            else:
+                raise ValueError(
+                    "retrieval.rerank_method must be 'pointwise' or 'listwise'"
+                )
             results = reranker.rerank(query, results)
         return results[:settings["result_count"]]
 

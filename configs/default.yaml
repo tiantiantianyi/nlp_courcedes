@@ -31,8 +31,13 @@ retrieval:
   image_batch_size: 8
   aliases: configs/retrieval_aliases.yaml
   query_parser_use_llm: false
+  rerank_method: pointwise
   rerank_default: false
   rerank_max_new_tokens: 128
+  rerank_listwise_prompt: configs/prompts/reranker_listwise.txt
+  rerank_listwise_max_new_tokens: 768
+  rerank_listwise_columns: 5
+  rerank_listwise_tile_size: 192
 generation:
   width: 512
   height: 512
