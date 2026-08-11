@@ -44,6 +44,11 @@ generation:
   steps: 30
   guidance_scale: 7.5
   seed: 20260802
+m7:
+  max_new_tokens: 384
+  max_story_gaps: 2
+  gap_scene_similarity_threshold: 0.15
+  fill_gaps_default: false
 runtime:
   device: cuda
   dtype: float16

@@ -19,8 +19,16 @@ class StableDiffusionGenerator:
         import torch
         from diffusers import StableDiffusionPipeline
         dtype = torch.float32 if self.device == "cpu" else getattr(torch, self.dtype_name)
+        load_options = {
+            "torch_dtype": dtype,
+            "local_files_only": True,
+        }
+        if self.device != "cpu" and self.dtype_name == "float16":
+            load_options.update({"variant": "fp16", "use_safetensors": True})
         self.pipeline = StableDiffusionPipeline.from_pretrained(
-            self.model_path, torch_dtype=dtype, local_files_only=True)
+            self.model_path,
+            **load_options,
+        )
         self.pipeline.enable_attention_slicing()
         self.pipeline.enable_vae_slicing()
         if self.device == "cuda":

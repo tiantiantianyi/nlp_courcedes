@@ -15,11 +15,16 @@ class SearchService:
         self.config, self.parser, self.searcher, self.manager = config, parser, searcher, manager
         self.annotations = annotations
         self.reranker_prompt, self.content_prompt, self.sd_prompt = reranker_prompt, content_prompt, sd_prompt
+        m7_settings = config.get("m7", {})
         self.m7 = M7Service(
             manager,
             config["project_root"],
             annotations,
-            max_new_tokens=int(config.get("m7", {}).get("max_new_tokens", 384)),
+            max_new_tokens=int(m7_settings.get("max_new_tokens", 384)),
+            max_story_gaps=int(m7_settings.get("max_story_gaps", 2)),
+            gap_scene_similarity_threshold=float(
+                m7_settings.get("gap_scene_similarity_threshold", 0.15)
+            ),
         )
 
     def _model_path(self, key: str, label: str) -> Path:
@@ -180,6 +185,8 @@ class SearchService:
         *,
         theme: str = "图文游记",
         tone: str = "自然",
+        fill_gaps: bool = False,
+        seed: int | None = None,
     ):
         selected = self._selected_candidates(
             candidates,
@@ -189,7 +196,39 @@ class SearchService:
         )
         self.release_retrieval_encoders()
         self._model_path("qwen_vl", "Qwen-VL")
-        return self.m7.create_story(selected, tone=tone, theme=theme.strip() or "图文游记")
+        story = self.m7.create_story(
+            selected,
+            tone=tone,
+            theme=theme.strip() or "图文游记",
+        )
+        if not fill_gaps:
+            return story
+
+        base_seed = (
+            int(seed)
+            if seed is not None
+            else int(self.config["generation"]["seed"])
+        )
+        project_root = Path(self.config["project_root"]).resolve()
+        for offset, gap in enumerate(getattr(story, "gaps", [])):
+            try:
+                output = self.generate_image(
+                    gap.generation_prompt,
+                    gap.after_image_id,
+                    base_seed + offset,
+                ).resolve()
+                try:
+                    relative_path = output.relative_to(project_root).as_posix()
+                except ValueError:
+                    relative_path = str(output)
+                gap.status = "generated"
+                gap.generated_image_id = output.stem
+                gap.relative_path = relative_path
+                gap.error = None
+            except Exception as exc:
+                gap.status = "failed"
+                gap.error = f"{type(exc).__name__}: {exc}"
+        return story
 
     def answer_about_image(self, image_id: str, question: str) -> str:
         from PIL import Image

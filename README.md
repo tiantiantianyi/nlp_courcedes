@@ -8,6 +8,7 @@
 
 - [2026-08-10 阶段性技术报告](docs/STAGE_REPORT_2026-08-10.md)
 - [2026-08-10 四项优先任务实施报告](docs/PRIORITY_TASKS_REPORT_2026-08-10.md)
+- [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
 - 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
 - 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 

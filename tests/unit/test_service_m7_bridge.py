@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from anima_search.app.service import SearchService
+from anima_search.m7.schemas import StoryGap, StorySection, VisualStory
 from anima_search.schemas import SearchQuery, SearchResult
 
 
@@ -43,7 +44,23 @@ class M7Stub:
 
     def create_story(self, candidates, tone, theme):
         self.story_candidates = candidates
-        return {"tone": tone, "theme": theme}
+        return VisualStory(
+            title=theme,
+            sections=[
+                StorySection(image_id=item.image_id, subtitle=tone, text="片段")
+                for item in candidates
+            ],
+            ordered_image_ids=[item.image_id for item in candidates],
+            gaps=[
+                StoryGap(
+                    gap_id="gap-01",
+                    after_image_id=candidates[0].image_id,
+                    before_image_id=candidates[1].image_id,
+                    reason="时间跨度",
+                    generation_prompt="生成自然过渡画面",
+                )
+            ],
+        )
 
 
 def service(tmp_path: Path) -> tuple[SearchService, ReleasableIndex, M7Stub]:
@@ -107,5 +124,36 @@ def test_visual_story_requires_three_to_eight_current_results(tmp_path: Path):
         tone="自然",
     )
     assert index.released
-    assert result == {"tone": "自然", "theme": "旅程"}
+    assert result.title == "旅程"
+    assert result.sections[0].subtitle == "自然"
     assert len(stub.story_candidates) == 3
+
+
+def test_visual_story_can_fill_gap_and_marks_generated_asset(
+    tmp_path: Path,
+    monkeypatch,
+):
+    instance, _, _ = service(tmp_path)
+    generated = tmp_path / "artifacts" / "generated" / "generated-42.png"
+    generated.parent.mkdir(parents=True)
+    generated.touch()
+    calls = []
+
+    def fake_generate(query: str, image_id: str | None, seed: int):
+        calls.append((query, image_id, seed))
+        return generated
+
+    monkeypatch.setattr(instance, "generate_image", fake_generate)
+    result = instance.create_visual_story(
+        candidates(3),
+        ["val-0", "val-1", "val-2"],
+        fill_gaps=True,
+        seed=42,
+    )
+
+    gap = result.gaps[0]
+    assert calls == [("生成自然过渡画面", "val-0", 42)]
+    assert gap.status == "generated"
+    assert gap.source == "generated" and gap.ai_generated
+    assert gap.generated_image_id == "generated-42"
+    assert gap.relative_path == "artifacts/generated/generated-42.png"

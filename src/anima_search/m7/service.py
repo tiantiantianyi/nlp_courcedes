@@ -8,6 +8,11 @@ from PIL import Image
 from anima_search.annotation.validation import extract_json_object
 from anima_search.m7.citations import citation_token, validate_citations
 from anima_search.m7.schemas import GroundedAnswer, ImageEvidence, IntentRoute, StorySection, VisualStory
+from anima_search.m7.story_planner import (
+    build_story_gaps,
+    order_story_candidates,
+    time_bucket,
+)
 from anima_search.schemas import ImageAnnotation, SearchResult
 
 
@@ -17,13 +22,21 @@ REFUSAL_TEXT = "在当前检索到的图片中没有足够依据回答这个问�
 class M7Service:
     """Grounded M7 workflows that operate with or without image annotations."""
 
-    def __init__(self, manager: object, project_root: str | Path,
-                 annotations: dict[str, ImageAnnotation] | None = None,
-                 max_new_tokens: int = 384) -> None:
+    def __init__(
+        self,
+        manager: object,
+        project_root: str | Path,
+        annotations: dict[str, ImageAnnotation] | None = None,
+        max_new_tokens: int = 384,
+        max_story_gaps: int = 2,
+        gap_scene_similarity_threshold: float = 0.15,
+    ) -> None:
         self.manager = manager
         self.project_root = Path(project_root)
         self.annotations = annotations or {}
         self.max_new_tokens = max_new_tokens
+        self.max_story_gaps = max_story_gaps
+        self.gap_scene_similarity_threshold = gap_scene_similarity_threshold
         self._evidence_cache: dict[tuple[str, str], ImageEvidence] = {}
 
     @staticmethod
@@ -132,35 +145,71 @@ class M7Service:
             except (AttributeError, KeyError, TypeError, ValueError):
                 return self._fallback_answer(evidence)
 
-    def create_story(self, candidates: list[SearchResult], tone: str = "自然",
-                     theme: str = "图文游记") -> VisualStory:
+    def create_story(
+        self,
+        candidates: list[SearchResult],
+        tone: str = "自然",
+        theme: str = "图文游记",
+    ) -> VisualStory:
         if not 3 <= len(candidates) <= 8:
             raise ValueError("a visual story requires 3 to 8 selected images")
+        ordered = order_story_candidates(candidates, self.annotations)
+        expected = [item.image_id for item in ordered]
+        known_time_count = sum(
+            time_bucket(self.annotations.get(item.image_id))[1] is not None
+            for item in ordered
+        )
+        ordering_reason = (
+            "按时间段排序，同一时间段按场景相似度组织相邻图片"
+            if known_time_count
+            else "缺少明确时间字段，保留选择顺序并使用可用场景特征"
+        )
         question = f"为{theme}提取场景、主体、动作、氛围和可见细节，语气为{tone}"
         with self.manager.qwen_session() as client:
-            evidence = [self._extract_evidence(client, item, question) for item in candidates]
+            evidence = [
+                self._extract_evidence(client, item, question) for item in ordered
+            ]
             request = (
-                "根据按顺序提供的图片证据生成图文故事。不得虚构具体地点、身份和真实经历。"
+                "根据已经自动排序的图片证据生成图文故事。不得虚构具体地点、身份和真实经历。"
                 "只输出 JSON：title 和 sections；每个 section 包含 image_id、subtitle、text，"
                 "section 顺序和图片顺序必须一致。\n"
                 f"主题：{theme}\n语气：{tone}\n证据："
-                + json.dumps([item.model_dump() for item in evidence], ensure_ascii=False)
+                + json.dumps(
+                    [item.model_dump() for item in evidence],
+                    ensure_ascii=False,
+                )
             )
             try:
-                payload = extract_json_object(client.generate_text(request, max_new_tokens=768))
+                payload = extract_json_object(
+                    client.generate_text(request, max_new_tokens=768)
+                )
                 story = VisualStory.model_validate(payload)
-                expected = [item.image_id for item in candidates]
                 actual = [section.image_id for section in story.sections]
                 if actual != expected:
-                    raise ValueError("story sections do not preserve selected image order")
-                return story
+                    raise ValueError("story sections do not preserve automatic image order")
             except (AttributeError, KeyError, TypeError, ValueError):
                 sections = []
                 for index, item in enumerate(evidence, start=1):
-                    detail = item.facts[0] if item.facts else "这张图片的可见信息不足。"
-                    sections.append(StorySection(
-                        image_id=item.image_id,
-                        subtitle=f"片段 {index}",
-                        text=f"{detail}{citation_token(item.image_id)}",
-                    ))
-                return VisualStory(title=theme, sections=sections)
+                    detail = (
+                        item.facts[0]
+                        if item.facts
+                        else "这张图片的可见信息不足。"
+                    )
+                    sections.append(
+                        StorySection(
+                            image_id=item.image_id,
+                            subtitle=f"片段 {index}",
+                            text=f"{detail}{citation_token(item.image_id)}",
+                        )
+                    )
+                story = VisualStory(title=theme, sections=sections)
+
+        story.ordered_image_ids = expected
+        story.ordering_reason = ordering_reason
+        story.gaps = build_story_gaps(
+            ordered,
+            self.annotations,
+            max_gaps=self.max_story_gaps,
+            scene_similarity_threshold=self.gap_scene_similarity_threshold,
+        )
+        return story

@@ -4,10 +4,12 @@ import argparse
 import sys
 from pathlib import Path
 
+import gradio as gr
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from anima_search.app.factory import create_service
-from anima_search.app.ui import build_app
+from anima_search.app.ui import APP_CSS, build_app
 
 
 def main() -> None:
@@ -24,6 +26,8 @@ def main() -> None:
         server_name=args.host,
         server_port=args.port,
         share=args.share,
+        theme=gr.themes.Soft(),
+        css=APP_CSS,
     )
 
 

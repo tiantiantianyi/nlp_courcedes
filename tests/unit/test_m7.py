@@ -5,7 +5,7 @@ from PIL import Image
 
 from anima_search.m7.citations import extract_citations, validate_citations
 from anima_search.m7.service import M7Service, REFUSAL_TEXT
-from anima_search.schemas import SearchResult
+from anima_search.schemas import ImageAnnotation, SearchResult
 
 
 class FakeClient:
@@ -89,6 +89,59 @@ def test_story_preserves_selected_order(tmp_path: Path):
     service = M7Service(FakeManager(FakeClient(image_outputs, [text_output])), tmp_path)
     story = service.create_story(selected)
     assert [section.image_id for section in story.sections] == ["val-0", "val-1", "val-2"]
+
+
+def test_story_uses_annotation_time_order_and_reports_gaps(tmp_path: Path):
+    selected = candidates(tmp_path, 3)
+    selected[0].image_id = "night"
+    selected[1].image_id = "morning"
+    selected[2].image_id = "dusk"
+
+    def annotation(image_id: str, time: str, scene: str) -> ImageAnnotation:
+        return ImageAnnotation(
+            image_id=image_id,
+            split="Val",
+            relative_path=f"{image_id}.jpg",
+            sha256=image_id,
+            summary=f"{time}的{scene}",
+            scene=scene,
+            attributes=[f"time_of_day:{time}"],
+            search_queries=["a", "b", "c"],
+            generation_prompt=f"{time} {scene}",
+            model_version="fake",
+            prompt_version="v1",
+        )
+
+    annotations = {
+        "night": annotation("night", "夜晚", "城市街道"),
+        "morning": annotation("morning", "早晨", "公园"),
+        "dusk": annotation("dusk", "黄昏", "海边"),
+    }
+    image_outputs = [
+        '{"relevant":true,"facts":["早晨的公园"],"uncertainty":[]}',
+        '{"relevant":true,"facts":["黄昏的海边"],"uncertainty":[]}',
+        '{"relevant":true,"facts":["夜晚的城市街道"],"uncertainty":[]}',
+    ]
+    text_output = (
+        '{"title":"一天的旅程","sections":['
+        '{"image_id":"morning","subtitle":"晨光","text":"早晨的公园"},'
+        '{"image_id":"dusk","subtitle":"落日","text":"黄昏的海边"},'
+        '{"image_id":"night","subtitle":"夜色","text":"夜晚的城市街道"}]}'
+    )
+    service = M7Service(
+        FakeManager(FakeClient(image_outputs, [text_output])),
+        tmp_path,
+        annotations,
+    )
+
+    story = service.create_story(selected)
+
+    assert [section.image_id for section in story.sections] == [
+        "morning", "dusk", "night",
+    ]
+    assert story.ordered_image_ids == ["morning", "dusk", "night"]
+    assert story.gaps
+    assert all(gap.ai_generated and gap.status == "missing" for gap in story.gaps)
 
 
 def test_route_distinguishes_story_and_search():

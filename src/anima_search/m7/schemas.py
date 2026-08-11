@@ -30,9 +30,28 @@ class StorySection(BaseModel):
     image_id: str
     subtitle: str
     text: str
+    source: Literal["real", "generated"] = "real"
+    ai_generated: bool = False
+
+
+class StoryGap(BaseModel):
+    gap_id: str
+    after_image_id: str
+    before_image_id: str
+    reason: str
+    generation_prompt: str
+    status: Literal["missing", "generated", "failed"] = "missing"
+    source: Literal["generated"] = "generated"
+    ai_generated: bool = True
+    generated_image_id: str | None = None
+    relative_path: str | None = None
+    error: str | None = None
 
 
 class VisualStory(BaseModel):
     title: str
     sections: list[StorySection]
+    ordered_image_ids: list[str] = Field(default_factory=list)
+    ordering_reason: str = ""
+    gaps: list[StoryGap] = Field(default_factory=list)
     disclaimer: str = "叙事性表达基于图片可见内容，不代表真实地点、身份或事件经过。"
