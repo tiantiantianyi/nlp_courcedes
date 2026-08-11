@@ -25,5 +25,8 @@ dependencies:
       - sentence-transformers>=5,<6
       - transformers>=5,<6
       - diffusers>=0.36,<0.40
+      - einops>=0.8,<1
       - modelscope>=1.33,<2
+      - timm>=1,<2
+      - xformers==0.0.35
       - typeguard>=4,<5

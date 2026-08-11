@@ -10,6 +10,7 @@
 - [2026-08-10 四项优先任务实施报告](docs/PRIORITY_TASKS_REPORT_2026-08-10.md)
 - [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
 - [2026-08-11 M4 查询理解三后端报告](docs/M4_QUERY_BACKENDS_2026-08-11.md)
+- [2026-08-11 A7 图像编码器资源对比](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)
 - 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
 - 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 
@@ -72,10 +73,10 @@ Pixi 可以理解为“Conda 环境管理 + 锁文件 + 项目任务”。`pixi.
 
 本仓库同时提供：
 
-- `pixi.toml` / `pixi.lock`：适合原 Windows 开发环境和已使用 Pixi 的队友。
+- `pixi.toml` / `pixi.lock`：同时锁定 Linux 与 Windows，适合已使用 Pixi 的队友。
 - `environment.yml`：适合本机 Linux 或已经熟悉 Conda 的成员。
 
-两者不需要同时安装，选择一种即可。当前仓库中的 Pixi 配置以 `win-64` 为目标；Linux 机器优先使用 Conda，除非先扩展 Pixi 平台并重新生成锁文件。
+两者不需要同时安装，选择一种即可。Pixi 配置覆盖 `linux-64` 与 `win-64`；本机已经创建好的 Conda 环境仍可继续使用。
 
 ### 2.1 Conda（当前 Linux 机器推荐）
 
@@ -125,6 +126,7 @@ models:
   stable_diffusion: stablediffusion
   embedder: models/bge-small-zh-v1.5
   image_embedder: models/chinese-clip-vit-base-patch16
+  jina_clip_v2: models/jina-clip-v2
 ```
 
 路径规则：
@@ -140,6 +142,7 @@ models:
 | 功能 | 模型 | 是否必需 |
 |---|---|---|
 | image 检索 | Chinese-CLIP ViT-B/16 | image-only/full image 分支必需 |
+| A7 图像编码器对照 | jina-clip-v2 | 仅切换 A7 编码器时需要 |
 | text 检索 | BGE small zh | full text 分支必需 |
 | BM25 | 无神经网络模型 | full BM25 分支必需 |
 | M6/M7 问答 | Qwen3-VL 2B | 仅重排、问答和故事需要 |
@@ -302,7 +305,26 @@ python scripts/compare_fusion_methods.py \
 Recall、MRR、mAP、nDCG 等质量结论。20 张本地小样的实跑记录见
 [`docs/M5_FUSION_COMPARISON_2026-08-11.md`](docs/M5_FUSION_COMPARISON_2026-08-11.md)。
 
-## 9. 测试与检查
+## 9. A7 Chinese-CLIP / jina-clip-v2 对照
+
+配置 `retrieval.image_encoder_type` 可取 `chinese_clip` 或 `jina_clip_v2`。Jina
+适配器支持 32/64/128/256/512/768/1024 Matryoshka 截断维度，并把编码器类型、
+维度选项和模型指纹写入索引元数据。8GB 配置建议 Jina batch size 1。
+
+本地模型齐全时运行 64 张配对资源测试：
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+python scripts/benchmark_image_encoders.py \
+  --limit 64 --output artifacts/a7_encoder_comparison_64.json
+```
+
+该脚本只比较模型大小、建库速度、峰值显存、向量维度、索引大小和热查询延迟。
+没有人工 relevance judgments 时，Top-5 仅用于检查向量有效和检索链路可用，不能据此
+声称任一编码器质量更好。RTX 4060 Laptop 8GB 的实测方法、资源表和限制见
+[`docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md`](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)。
+
+## 10. 测试与检查
 
 ```bash
 python -m pytest -q

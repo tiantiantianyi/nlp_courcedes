@@ -39,22 +39,44 @@ def main() -> None:
     image_paths = [Path(config["project_root"]) / item.relative_path for item in annotations]
     output = artifacts / "indexes" / split
 
+    encoder_type = str(
+        config["retrieval"].get("image_encoder_type", "chinese_clip")
+    )
+    if encoder_type == "jina_clip_v2":
+        model_path = resolve_path(config, config["models"]["jina_clip_v2"])
+        encoder_options = {
+            "truncate_dim": int(
+                config["retrieval"].get("jina_clip_truncate_dim", 512)
+            ),
+            "local_files_only": bool(
+                config["retrieval"].get("jina_clip_local_files_only", True)
+            ),
+        }
+        batch_size = int(
+            config["retrieval"].get("jina_clip_image_batch_size", 1)
+        )
+    else:
+        model_path = resolve_path(config, config["models"]["image_embedder"])
+        encoder_options = {}
+        batch_size = int(config["retrieval"].get("image_batch_size", 8))
     index = ImageVectorIndex(
-        resolve_path(config, config["models"]["image_embedder"]),
+        model_path,
         config["runtime"]["device"],
         config["runtime"]["dtype"],
         IMAGE_ONLY_ANNOTATION_VERSION,
         {
-            "batch_size": int(config["retrieval"].get("image_batch_size", 8)),
+            "batch_size": batch_size,
             "normalize_embeddings": True,
             "similarity": "inner_product",
             "source": "manifest",
         },
+        encoder_type=encoder_type,
+        encoder_options=encoder_options,
     )
     index.build(
         image_ids,
         image_paths,
-        batch_size=int(config["retrieval"].get("image_batch_size", 8)),
+        batch_size=batch_size,
     )
     index.save(output / "image")
     output.mkdir(parents=True, exist_ok=True)

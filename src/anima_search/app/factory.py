@@ -57,11 +57,29 @@ def create_service(
             device=config["runtime"]["device"],
         )
     if "image" in enabled and (index_dir / "image").is_dir():
+        encoder_type = str(
+            config["retrieval"].get("image_encoder_type", "chinese_clip")
+        )
+        if encoder_type == "jina_clip_v2":
+            image_model_path = resolve_path(config, config["models"]["jina_clip_v2"])
+            encoder_options = {
+                "truncate_dim": int(
+                    config["retrieval"].get("jina_clip_truncate_dim", 512)
+                ),
+                "local_files_only": bool(
+                    config["retrieval"].get("jina_clip_local_files_only", True)
+                ),
+            }
+        else:
+            image_model_path = resolve_path(config, config["models"]["image_embedder"])
+            encoder_options = {}
         indexes["image"] = ImageVectorIndex.load(
             index_dir / "image",
-            model_path=resolve_path(config, config["models"]["image_embedder"]),
+            model_path=image_model_path,
             device=config["runtime"]["device"],
             dtype=config["runtime"]["dtype"],
+            encoder_type=encoder_type,
+            encoder_options=encoder_options,
         )
     missing_enabled = enabled - set(indexes)
     if missing_enabled:

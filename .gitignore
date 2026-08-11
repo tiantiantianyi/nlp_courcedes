@@ -27,6 +27,7 @@ artifacts/evaluation/
 artifacts/routing/
 artifacts/directory_runs/
 artifacts/mock/
+artifacts/a7_*
 outputs/
 runs/
 models/

@@ -8,6 +8,7 @@ models:
   stable_diffusion: stablediffusion
   embedder: models/bge-small-zh-v1.5
   image_embedder: models/chinese-clip-vit-base-patch16
+  jina_clip_v2: models/jina-clip-v2
 annotation:
   prompt: configs/prompts/caption_verified_v4.txt
   prompt_version: caption_verified_v4
@@ -24,6 +25,10 @@ retrieval:
   vlm_weight: 0.65
   text_batch_size: 16
   image_batch_size: 4
+  image_encoder_type: chinese_clip
+  jina_clip_truncate_dim: 512
+  jina_clip_local_files_only: true
+  jina_clip_image_batch_size: 1
   aliases: configs/retrieval_aliases.yaml
   query_parser_use_llm: false
   query_parser_backend: rules

@@ -119,13 +119,50 @@ def main() -> None:
                 index.model = None
                 _release_cuda()
             elif branch == "image":
-                model_path = resolve_path(config, config["models"]["image_embedder"])
-                batch_size = int(config["retrieval"].get("image_batch_size", 8))
+                encoder_type = str(
+                    config["retrieval"].get("image_encoder_type", "chinese_clip")
+                )
+                if encoder_type == "jina_clip_v2":
+                    model_path = resolve_path(
+                        config,
+                        config["models"]["jina_clip_v2"],
+                    )
+                    encoder_options = {
+                        "truncate_dim": int(
+                            config["retrieval"].get(
+                                "jina_clip_truncate_dim",
+                                512,
+                            )
+                        ),
+                        "local_files_only": bool(
+                            config["retrieval"].get(
+                                "jina_clip_local_files_only",
+                                True,
+                            )
+                        ),
+                    }
+                    batch_size = int(
+                        config["retrieval"].get(
+                            "jina_clip_image_batch_size",
+                            1,
+                        )
+                    )
+                else:
+                    model_path = resolve_path(
+                        config,
+                        config["models"]["image_embedder"],
+                    )
+                    encoder_options = {}
+                    batch_size = int(
+                        config["retrieval"].get("image_batch_size", 8)
+                    )
                 index = ImageVectorIndex(
                     model_path, config["runtime"]["device"], config["runtime"]["dtype"],
                     config["annotation"]["prompt_version"],
                     {"batch_size": batch_size, "normalize_embeddings": True,
                      "similarity": "inner_product"},
+                    encoder_type=encoder_type,
+                    encoder_options=encoder_options,
                 )
                 image_paths = [Path(config["project_root"]) / item.relative_path for item in annotations]
                 index.build(image_ids, image_paths, batch_size=batch_size)
