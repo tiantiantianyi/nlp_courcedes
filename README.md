@@ -9,6 +9,7 @@
 - [2026-08-10 阶段性技术报告](docs/STAGE_REPORT_2026-08-10.md)
 - [2026-08-10 四项优先任务实施报告](docs/PRIORITY_TASKS_REPORT_2026-08-10.md)
 - [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
+- [2026-08-11 M4 查询理解三后端报告](docs/M4_QUERY_BACKENDS_2026-08-11.md)
 - 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
 - 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 
@@ -145,6 +146,29 @@ models:
 | 缺图生成 | Stable Diffusion | 仅生成图片需要 |
 
 8GB 显存下让 Qwen-VL 与 Stable Diffusion 串行加载，不要同时常驻。
+
+### M4 查询理解后端
+
+retrieval.query_parser_backend 支持三种值：
+
+| 值 | 作用 | 额外条件 |
+|---|---|---|
+| rules | 确定性槽位抽取，默认值 | 无 |
+| local_qwen | 本地 Qwen3-VL 做语义改写和软字段补充 | 本地 Qwen 模型 |
+| openai_compatible | 调用 OpenAI-compatible 免费 API | API Key 环境变量 |
+
+直接验证规则或本地 Qwen：
+
+    python scripts/verify_m4_query_parser.py --backend rules
+    python scripts/verify_m4_query_parser.py --backend local_qwen
+
+免费 API 示例使用 SiliconFlow 兼容接口。不要把 Key 写入 YAML 或 Git：
+
+    export SILICONFLOW_API_KEY=你的密钥
+    python scripts/verify_m4_query_parser.py --backend openai_compatible
+
+若 API 缺 Key、超时、限流或输出不合法，查询会自动回退到规则解析；硬否定、数量、
+时间、天气和 OCR 条件始终由确定性规则保护，避免 LLM 猜测变成错误硬过滤。
 
 ## 4. 模式一：mock（立即可运行）
 

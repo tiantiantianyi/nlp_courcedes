@@ -17,6 +17,7 @@ from anima_search.indexing.index_manifest import (
     validate_index_manifest,
 )
 from anima_search.indexing.vector_index import VectorIndex
+from anima_search.retrieval.openai_compatible import OpenAICompatibleTextClient
 from anima_search.retrieval.query_parser import QueryParser
 from anima_search.retrieval.search import HybridSearcher
 from anima_search.runtime.model_manager import ModelManager
@@ -110,8 +111,29 @@ def create_service(
         ),
     )
     prompt_dir = Path(config["project_root"]) / "configs" / "prompts"
+    retrieval_settings = config["retrieval"]
+    parser_backend = retrieval_settings.get("query_parser_backend")
+    if not parser_backend:
+        parser_backend = (
+            "local_qwen"
+            if bool(retrieval_settings.get("query_parser_use_llm", False))
+            else "rules"
+        )
+    parser_backend = str(parser_backend).strip().lower()
+    parser_generator = None
+    if parser_backend in {"openai_compatible", "api"}:
+        api_settings = retrieval_settings.get("query_parser_api", {})
+        parser_generator = OpenAICompatibleTextClient(
+            str(api_settings.get("base_url", "")),
+            str(api_settings.get("model", "")),
+            api_key_env=str(
+                api_settings.get("api_key_env", "SILICONFLOW_API_KEY")
+            ),
+            timeout_seconds=float(api_settings.get("timeout_seconds", 30)),
+            max_retries=int(api_settings.get("max_retries", 2)),
+        )
     parser = QueryParser(
-        None,
+        parser_generator,
         (prompt_dir / "query_parser.txt").read_text(encoding="utf-8"),
         aliases,
     )

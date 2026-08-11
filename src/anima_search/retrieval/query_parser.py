@@ -29,11 +29,27 @@ def _number(value: str) -> int:
 
 
 class QueryParser:
+    _GENERATED_LIST_FIELDS = (
+        "objects",
+        "actions",
+        "scene",
+        "time_of_day",
+        "weather",
+        "mood",
+        "colors",
+        "style",
+        "required_terms",
+        "excluded_terms",
+        "ocr_terms",
+    )
+
     def __init__(self, text_generator: object | None = None, prompt: str = "",
                  aliases: dict | None = None) -> None:
         self.text_generator = text_generator
         self.prompt = prompt
         self.catalog = AliasCatalog(aliases)
+        self.last_backend = "rules"
+        self.last_error: str | None = None
 
     @staticmethod
     def _quoted_terms(query: str) -> list[str]:
@@ -102,10 +118,10 @@ class QueryParser:
     @staticmethod
     def _merge(base: SearchQuery, generated: SearchQuery) -> SearchQuery:
         payload = base.model_dump()
-        list_fields = (
-            "objects", "actions", "scene", "time_of_day", "weather", "mood", "colors", "style",
-            "required_terms", "excluded_terms", "ocr_terms",
-        )
+        # Only soft descriptive fields may be enriched by an LLM. Hard filters
+        # remain deterministic so invented weather/OCR/negative values cannot
+        # silently remove valid retrieval candidates.
+        list_fields = ("actions", "mood", "style")
         for field_name in list_fields:
             payload[field_name] = unique_strings([
                 *getattr(base, field_name), *getattr(generated, field_name)
@@ -120,15 +136,41 @@ class QueryParser:
         payload["raw_text"] = base.raw_text
         return SearchQuery.model_validate(payload)
 
+    @classmethod
+    def _normalize_generated_payload(cls, payload: dict) -> dict:
+        normalized = dict(payload)
+        for field_name in cls._GENERATED_LIST_FIELDS:
+            if field_name not in normalized:
+                continue
+            value = normalized.get(field_name)
+            if value is None:
+                normalized[field_name] = []
+                continue
+            if isinstance(value, str):
+                normalized[field_name] = [value] if value.strip() else []
+            elif not isinstance(value, list):
+                normalized[field_name] = [value]
+        return normalized
+
     def parse(self, query: str, generator: object | None = None) -> SearchQuery:
         base = self._rule_parse(query)
         source = generator or self.text_generator
+        self.last_error = None
         if source is None:
+            self.last_backend = "rules"
             return base
         try:
             source = source() if callable(source) else source
-            payload = extract_json_object(source.generate_text(f"{self.prompt}\n用户查询：{query}"))
+            payload = self._normalize_generated_payload(
+                extract_json_object(
+                    source.generate_text(f"{self.prompt}\n用户查询：{query}")
+                )
+            )
             payload["raw_text"] = query
-            return self._merge(base, SearchQuery.model_validate(payload))
-        except Exception:  # optional model failures must preserve deterministic parsing
+            result = self._merge(base, SearchQuery.model_validate(payload))
+            self.last_backend = "llm"
+            return result
+        except Exception as exc:  # optional failures preserve deterministic parsing
+            self.last_backend = "rules_fallback"
+            self.last_error = f"{type(exc).__name__}: {exc}"
             return base

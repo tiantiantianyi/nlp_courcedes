@@ -27,6 +27,14 @@ class ExtraGenerator:
         return '{"semantic_text":"雨夜城区","scene":["城市"],"actions":["行走"],"query_type":"compositional"}'
 
 
+class ScalarGenerator:
+    def generate_text(self, prompt):
+        return (
+            '{"semantic_text":"雨夜城市","scene":"城市","mood":"安静",'
+            '"excluded_terms":["不要","没有"],"query_type":"compositional"}'
+        )
+
+
 def test_rules_extract_negative_compositional_query():
     parsed = QueryParser(aliases=ALIASES).parse("不要人物，寻找冷色调的雨夜城市")
     assert parsed.query_type == "negative"
@@ -49,13 +57,28 @@ def test_negative_exception_does_not_treat_drone_as_no_people():
 
 
 def test_broken_generator_keeps_rule_results():
-    parsed = QueryParser(aliases=ALIASES).parse("没有行人的城市", BrokenGenerator())
+    parser = QueryParser(aliases=ALIASES)
+    parsed = parser.parse("没有行人的城市", BrokenGenerator())
     assert parsed.excluded_terms == ["人物"]
     assert parsed.scene == ["城市"]
+    assert parser.last_backend == "rules_fallback"
+    assert parser.last_error == "RuntimeError: offline"
 
 
 def test_generator_adds_fields_without_overwriting_explicit_negative():
-    parsed = QueryParser(aliases=ALIASES).parse("不要人物的雨夜城市", ExtraGenerator())
+    parser = QueryParser(aliases=ALIASES)
+    parsed = parser.parse("不要人物的雨夜城市", ExtraGenerator())
     assert parsed.query_type == "negative"
     assert parsed.excluded_terms == ["人物"]
     assert parsed.actions == ["行走"]
+    assert parser.last_backend == "llm"
+    assert parser.last_error is None
+
+
+def test_generator_scalar_fields_are_normalized_and_cannot_invent_exclusions():
+    parser = QueryParser(aliases=ALIASES)
+    parsed = parser.parse("安静的雨夜城市", ScalarGenerator())
+    assert parsed.scene == ["城市", "雨天"]
+    assert parsed.mood == ["安静"]
+    assert parsed.excluded_terms == []
+    assert parser.last_backend == "llm"

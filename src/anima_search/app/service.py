@@ -81,15 +81,27 @@ class SearchService:
 
     def search(self, query: str, use_reranker: bool = False) -> list[SearchResult]:
         settings = self.config["retrieval"]
-        use_parser_llm = bool(settings.get("query_parser_use_llm", False))
+        parser_backend = settings.get("query_parser_backend")
+        if not parser_backend:
+            parser_backend = (
+                "local_qwen"
+                if bool(settings.get("query_parser_use_llm", False))
+                else "rules"
+            )
+        parser_backend = str(parser_backend).strip().lower()
         target_count = settings["rerank_count"] if use_reranker else settings["result_count"]
-        if use_parser_llm:
+        if parser_backend == "local_qwen":
             self._model_path("qwen_vl", "Qwen-VL")
             with self.manager.qwen_session() as qwen:
                 parsed = self.parser.parse(query, qwen)
             self.manager.unload_all()
-        else:
+        elif parser_backend in {"rules", "openai_compatible", "api"}:
             parsed = self.parser.parse(query)
+        else:
+            raise ValueError(
+                "retrieval.query_parser_backend must be rules, local_qwen, "
+                "or openai_compatible"
+            )
 
         results = self.searcher.search(parsed, settings["candidate_count"], target_count)
         if not use_reranker:

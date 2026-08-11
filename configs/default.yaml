@@ -31,6 +31,13 @@ retrieval:
   image_batch_size: 8
   aliases: configs/retrieval_aliases.yaml
   query_parser_use_llm: false
+  query_parser_backend: rules
+  query_parser_api:
+    base_url: https://api.siliconflow.cn/v1
+    model: Qwen/Qwen2.5-7B-Instruct
+    api_key_env: SILICONFLOW_API_KEY
+    timeout_seconds: 30
+    max_retries: 2
   rerank_method: pointwise
   rerank_default: false
   rerank_max_new_tokens: 128
