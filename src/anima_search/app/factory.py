@@ -27,10 +27,13 @@ def create_service(
     config_path: str = "configs/default.yaml",
     split: str = "val",
     enabled_branches: Sequence[str] | None = None,
+    fusion_method: str | None = None,
 ) -> SearchService:
     config = load_config(config_path)
     if enabled_branches is not None:
         config["retrieval"]["enabled_branches"] = list(enabled_branches)
+    if fusion_method is not None:
+        config["retrieval"]["fusion_method"] = fusion_method
     artifacts = resolve_path(config, config["data"]["artifacts_dir"])
     index_dir = artifacts / "indexes" / split
     annotation_path = index_dir / "annotations.json"
@@ -117,6 +120,8 @@ def create_service(
         rrf_k=config["retrieval"]["rrf_k"],
         indexes=indexes,
         aliases=aliases,
+        fusion_method=config["retrieval"].get("fusion_method", "rrf"),
+        fusion_weights=config["retrieval"].get("fusion_weights", {}),
     )
     return SearchService(
         config,

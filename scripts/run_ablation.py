@@ -50,7 +50,9 @@ def main() -> None:
         resolve_path(config, config["data"]["artifacts_dir"]) / "evaluation"
     )
     rows = run_a5_ablation(
-        lambda branches: create_service(args.config, args.split, branches),
+        lambda branches, fusion_method: create_service(
+            args.config, args.split, branches, fusion_method
+        ),
         queries,
         relevance,
     )

@@ -9,17 +9,23 @@ from anima_search.evaluation.runner import evaluate_queries
 
 
 _A5_VARIANTS = (
-    ("clip_only", ["image"]),
-    ("text_only", ["text"]),
-    ("bm25_only", ["bm25"]),
-    ("rrf_three_way", ["image", "text", "bm25"]),
+    ("clip_only", ["image"], "rrf"),
+    ("text_only", ["text"], "rrf"),
+    ("bm25_only", ["bm25"], "rrf"),
+    ("rrf_three_way", ["image", "text", "bm25"], "rrf"),
+    ("weighted_three_way", ["image", "text", "bm25"], "weighted"),
 )
 
 
 def a5_ablation_matrix() -> list[dict[str, object]]:
     return [
-        {"variant": variant, "branches": list(branches), "reranker": False}
-        for variant, branches in _A5_VARIANTS
+        {
+            "variant": variant,
+            "branches": list(branches),
+            "fusion_method": fusion_method,
+            "reranker": False,
+        }
+        for variant, branches, fusion_method in _A5_VARIANTS
     ]
 
 
@@ -29,14 +35,15 @@ def ablation_matrix() -> list[dict[str, object]]:
 
 
 def run_a5_ablation(
-    service_factory: Callable[[list[str]], object],
+    service_factory: Callable[[list[str], str], object],
     queries: list[dict[str, object]],
     relevance: dict[str, dict[str, int]],
 ) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for variant in a5_ablation_matrix():
         branches = list(variant["branches"])
-        service = service_factory(branches)
+        fusion_method = str(variant["fusion_method"])
+        service = service_factory(branches, fusion_method)
         _, summary = evaluate_queries(
             service,
             queries,
@@ -48,6 +55,7 @@ def run_a5_ablation(
                 "variant": variant["variant"],
                 "branches": branches,
                 **dict(summary["overall"]),
+                "fusion_method": fusion_method,
             }
         )
     return rows

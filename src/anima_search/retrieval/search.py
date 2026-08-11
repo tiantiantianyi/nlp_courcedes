@@ -1,5 +1,8 @@
 from anima_search.retrieval.filters import AnnotationFilter
-from anima_search.retrieval.fusion import reciprocal_rank_fusion_with_ranks
+from anima_search.retrieval.fusion import (
+    normalized_weighted_fusion_with_ranks,
+    reciprocal_rank_fusion_with_ranks,
+)
 from anima_search.schemas import ImageAnnotation, SearchQuery, SearchResult
 
 
@@ -21,9 +24,15 @@ def query_to_document(query: SearchQuery) -> str:
 class HybridSearcher:
     def __init__(self, annotations: dict[str, ImageAnnotation], bm25: object | None = None,
                  vector: object | None = None, rrf_k: int = 60, image: object | None = None,
-                 indexes: dict[str, object] | None = None, aliases: dict | None = None) -> None:
+                 indexes: dict[str, object] | None = None, aliases: dict | None = None,
+                 fusion_method: str = "rrf",
+                 fusion_weights: dict[str, float] | None = None) -> None:
         self.annotations = annotations
         self.rrf_k = rrf_k
+        if fusion_method not in {"rrf", "weighted"}:
+            raise ValueError("fusion_method must be 'rrf' or 'weighted'")
+        self.fusion_method = fusion_method
+        self.fusion_weights = dict(fusion_weights or {})
         self.indexes = indexes or {
             name: index for name, index in (("image", image), ("text", vector), ("bm25", bm25))
             if index is not None
@@ -66,9 +75,14 @@ class HybridSearcher:
         active_branches = [name for name in preferred_order if name in rankings]
         active_branches.extend(name for name in rankings if name not in preferred_order)
         results: list[SearchResult] = []
-        for image_id, score, branch_scores, branch_ranks in reciprocal_rank_fusion_with_ranks(
-            rankings, self.rrf_k
-        ):
+        if self.fusion_method == "weighted":
+            fused = normalized_weighted_fusion_with_ranks(
+                rankings,
+                {name: self.fusion_weights.get(name, 1.0) for name in rankings},
+            )
+        else:
+            fused = reciprocal_rank_fusion_with_ranks(rankings, self.rrf_k)
+        for image_id, score, branch_scores, branch_ranks in fused:
             annotation = self.annotations.get(image_id)
             if annotation is None:
                 continue

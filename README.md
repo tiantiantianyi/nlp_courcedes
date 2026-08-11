@@ -242,7 +242,7 @@ python scripts/evaluate_retrieval.py \
 
 输出总体与 query category 分组的 Recall@K、MRR、mAP、nDCG@10、平均/P50/P95 延迟和失败率，并写出 JSON、CSV、LaTeX 与失败明细。
 
-A5 的四组实验是 CLIP-only、text-only、BM25-only 和三路 RRF：
+A5 的五组实验是 CLIP-only、text-only、BM25-only、三路 RRF 和三路归一化加权融合：
 
 ```bash
 python scripts/run_ablation.py --dry-run
@@ -252,6 +252,18 @@ python scripts/run_ablation.py \
 ```
 
 没有正式 relevance 文件时只能完成代码和 dry-run，不能生成课程报告结论。
+
+在正式 relevance 尚未完成时，可运行仅比较排名差异与延迟的工程对照：
+
+```bash
+python scripts/compare_fusion_methods.py \
+  --queries configs/m6_benchmark_queries.jsonl \
+  --top-k 8
+```
+
+该命令报告 Top-K 重合率、共同结果平均位次变化和两种融合延迟，不输出或暗示
+Recall、MRR、mAP、nDCG 等质量结论。20 张本地小样的实跑记录见
+[`docs/M5_FUSION_COMPARISON_2026-08-11.md`](docs/M5_FUSION_COMPARISON_2026-08-11.md)。
 
 ## 9. 测试与检查
 
