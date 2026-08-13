@@ -1,0 +1,15 @@
+# Local audit inputs and generated records
+audit_data/
+local_data/
+sample_manifest.jsonl
+audit_tasks.jsonl
+audit_manifest.json
+reviews.sqlite3
+reviews.sqlite3-shm
+reviews.sqlite3-wal
+exports/
+reports/
+
+# Runtime caches
+__pycache__/
+*.py[cod]

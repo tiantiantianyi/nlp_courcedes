@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>M1 人工审计</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <section id="loginView" class="login-view">
+    <div class="login-panel">
+      <p class="eyebrow">M1 AUDIT · 50 IMAGES</p>
+      <h1>融合前后人工审计</h1>
+      <p class="muted">评审记录按名称独立保存。</p>
+      <label for="reviewerInput">评审者名称</label>
+      <div class="login-row">
+        <input id="reviewerInput" maxlength="40" autocomplete="name" placeholder="输入你的名称">
+        <button id="loginButton" class="primary">进入审计</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="appView" class="app-view hidden">
+    <header class="topbar">
+      <div class="brand-block">
+        <span class="brand-mark">M1</span>
+        <div>
+          <strong>融合质量审计</strong>
+          <span id="reviewerLabel" class="muted"></span>
+        </div>
+      </div>
+      <div class="progress-block">
+        <div class="progress-copy">
+          <span id="progressText">0 / 50 已提交</span>
+          <span id="draftText" class="muted">0 份进行中</span>
+        </div>
+        <div class="progress-track"><span id="progressBar"></span></div>
+      </div>
+      <button id="switchReviewerButton" class="quiet">切换评审者</button>
+    </header>
+
+    <div class="workspace">
+      <aside class="queue-panel">
+        <div class="queue-head">
+          <strong>样本</strong>
+          <div class="queue-filters" role="group" aria-label="筛选样本">
+            <button class="filter active" data-filter="all">全部</button>
+            <button class="filter" data-filter="pending">未完成</button>
+            <button class="filter" data-filter="submitted">已提交</button>
+          </div>
+        </div>
+        <div id="taskList" class="task-list"></div>
+      </aside>
+
+      <main class="review-shell">
+        <section class="image-panel">
+          <div class="image-head">
+            <div>
+              <span id="sampleIndex" class="eyebrow"></span>
+              <h2 id="imageTitle">选择一个样本</h2>
+            </div>
+            <button id="fitImageButton" class="icon-button" title="切换图片显示方式" aria-label="切换图片显示方式">↔</button>
+          </div>
+          <div id="imageStage" class="image-stage">
+            <img id="auditImage" alt="当前评审图片">
+          </div>
+        </section>
+
+        <section id="reviewPanel" class="review-panel">
+          <div id="emptyState" class="empty-state">
+            <strong>从左侧选择样本</strong>
+          </div>
+
+          <div id="goldPhase" class="hidden">
+            <div class="phase-head">
+              <div>
+                <p class="eyebrow">STEP 1 / 人工事实</p>
+                <h2>先只看原图</h2>
+              </div>
+              <span class="status-chip pending">未显示候选</span>
+            </div>
+
+            <div class="rubric-band">
+              只记录对主体、事件或检索有实质作用的对象，以及清晰且值得检索的文字。背景极小目标不强制填写。
+            </div>
+
+            <form id="goldForm">
+              <div class="field-band">
+                <div class="field-label">图片是否足以判断</div>
+                <div class="segment-group" data-field="assessability">
+                  <label><input type="radio" name="assessability" value="assessable"><span>可以判断</span></label>
+                  <label><input type="radio" name="assessability" value="partly_assessable"><span>部分可判断</span></label>
+                  <label><input type="radio" name="assessability" value="unassessable"><span>无法判断</span></label>
+                </div>
+              </div>
+
+              <div class="two-column-fields">
+                <label class="field-control">场景主类
+                  <select id="scenePrimary">
+                    <option value="">请选择</option>
+                    <option value="general">一般场景</option>
+                    <option value="indoor">室内</option>
+                    <option value="street_urban">城市街景</option>
+                    <option value="nature">自然场景</option>
+                    <option value="people_activity">人物活动</option>
+                    <option value="food">食物</option>
+                    <option value="transport">交通</option>
+                    <option value="animal_plant">动植物</option>
+                    <option value="object_exhibit">物品或展品</option>
+                    <option value="illustration_meme">插画或表情图</option>
+                    <option value="document_screen">文档或屏幕</option>
+                    <option value="uncertain">无法判断</option>
+                  </select>
+                </label>
+                <label class="field-control">环境
+                  <select id="environment">
+                    <option value="">请选择</option>
+                    <option value="indoor">室内</option>
+                    <option value="outdoor">室外</option>
+                    <option value="mixed">室内外混合</option>
+                    <option value="not_applicable">不适用</option>
+                    <option value="uncertain">无法判断</option>
+                  </select>
+                </label>
+              </div>
+
+              <section class="entry-section">
+                <div class="section-line">
+                  <div>
+                    <h3>主要实体</h3>
+                    <p>同类多个实例需要区分时，可写“左侧汽车”“右侧汽车”。</p>
+                  </div>
+                  <button type="button" id="addGoldEntity" class="secondary">+ 添加实体</button>
+                </div>
+                <div id="goldEntities" class="entry-list"></div>
+                <p id="goldEntityEmpty" class="empty-row">没有需要记录的主要实体</p>
+              </section>
+
+              <section class="entry-section">
+                <div class="section-line">
+                  <div>
+                    <h3>清晰 OCR</h3>
+                    <p>只填写肉眼可以稳定读出、并且对检索有意义的文字。</p>
+                  </div>
+                  <button type="button" id="addGoldOcr" class="secondary">+ 添加文字</button>
+                </div>
+                <div id="goldOcr" class="entry-list"></div>
+                <p id="goldOcrEmpty" class="empty-row">图片没有清晰且值得检索的文字</p>
+              </section>
+
+              <label class="field-control notes-field">图片备注（可选）
+                <textarea id="goldNotes" rows="2" maxlength="2000" placeholder="仅记录影响判断的问题"></textarea>
+              </label>
+
+              <div class="sticky-actions">
+                <button type="submit" class="primary">保存人工事实并进入盲评</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="candidatePhase" class="hidden">
+            <div class="phase-head">
+              <div>
+                <p class="eyebrow">STEP 2 / 候选盲评</p>
+                <h2>A / B / C 三份结果</h2>
+              </div>
+              <button id="backToGoldButton" class="quiet">修改人工事实</button>
+            </div>
+
+            <div class="rubric-band">
+              实体存在性、数量、OCR、关系分别评价。不要因为 bbox 或颜色错误，就把一个确实存在的实体判为不存在。
+            </div>
+
+            <div id="candidateTabs" class="candidate-tabs" role="tablist"></div>
+            <div id="candidateContent"></div>
+
+            <div class="sticky-actions split-actions">
+              <button id="reopenReviewButton" class="secondary hidden">重新打开本图</button>
+              <div id="editableActions" class="action-group">
+                <button id="saveDraftButton" class="secondary">保存草稿</button>
+                <button id="submitReviewButton" class="primary">提交本图</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
