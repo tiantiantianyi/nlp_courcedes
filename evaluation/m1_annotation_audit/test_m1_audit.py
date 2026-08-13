@@ -9,6 +9,7 @@ from m1_audit_common import (
     SOURCE_IDS,
     blind_source_order,
     compute_metrics,
+    metrics_markdown,
     validate_candidate_reviews,
     validate_gold,
 )
@@ -124,6 +125,8 @@ class M1AuditTest(unittest.TestCase):
         )
         self.assertEqual(result["metrics"]["fusion"]["entity_mention_precision"], 0.0)
         self.assertEqual(result["metrics"]["qwen35_9b"]["entity_mention_precision"], 1.0)
+        self.assertEqual(result["sample_size"], 1)
+        self.assertIn("已提交图片：1 / 1", metrics_markdown(result))
 
     def test_sqlite_store_saves_gold_and_submits(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -11,7 +11,7 @@
 - [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
 - [2026-08-11 M4 查询理解三后端报告](docs/M4_QUERY_BACKENDS_2026-08-11.md)
 - [2026-08-11 A7 图像编码器资源对比](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)
-- [M1 标注融合人工评测工具](evaluation/m1_annotation_audit/README.md)：在同一批 50 张图片上盲评 Qwen、InternVL 和 Fusion，支持断点续评和指标导出。
+- [M1 标注融合人工评测工具](evaluation/m1_annotation_audit/README.md)：在同一批 30 张图片上盲评 Qwen、InternVL 和 Fusion，支持断点续评和指标导出。
 - 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
 - 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 

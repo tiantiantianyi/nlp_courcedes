@@ -475,13 +475,14 @@ def compute_metrics(
         comparison[f"fusion_minus_{baseline}"] = deltas
     return {
         "audit_version": AUDIT_VERSION,
+        "sample_size": len(tasks_by_id),
         "submitted_reviews": len(submitted_reviews),
         "single_reviewer": True,
         "metrics": metrics,
         "comparisons": comparison,
         "limitations": [
             "Single-reviewer stratified audit; no inter-rater agreement is available.",
-            "The 50 images are risk-stratified and are not an unbiased estimate of all 2369 images.",
+            f"The {len(tasks_by_id)} images are risk-stratified and are not an unbiased estimate of all 2369 images.",
             "All ratios include their effective denominators; small-denominator differences require caution.",
         ],
     }
@@ -499,7 +500,7 @@ def metrics_markdown(report: dict[str, Any]) -> str:
     lines = [
         "# M1 融合前后单人人工评审结果",
         "",
-        f"已提交图片：{report['submitted_reviews']} / 50",
+        f"已提交图片：{report['submitted_reviews']} / {report.get('sample_size', report['submitted_reviews'])}",
         "",
         "本报告来自单人、风险分层抽样，不代表 2369 张全量数据的无偏总体估计。每项结果必须结合有效分母解释。",
         "",

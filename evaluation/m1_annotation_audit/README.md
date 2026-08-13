@@ -1,6 +1,6 @@
 # M1 标注融合人工评测工具
 
-这套工具用于在同一批 50 张图片上，对比以下三份视觉标注：
+这套工具用于在同一批 30 张图片上，对比以下三份视觉标注：
 
 - Qwen3.5-9B 的规范化结果；
 - InternVL3.5-14B 的规范化结果；
@@ -12,10 +12,10 @@
 
 ## 1. 最省事的用法：在现有服务器评审
 
-如果你和 M1 开发者使用同一台服务器，不需要重新生成 50 张任务。正式任务已经位于：
+如果你和 M1 开发者使用同一台服务器，不需要重新生成任务。30 张正式任务已经位于：
 
 ```text
-/home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_1
+/home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_2
 ```
 
 服务当前可能已在 `tmux` 会话 `m1-audit-ui` 中运行。先检查：
@@ -29,7 +29,7 @@ curl http://127.0.0.1:8765/api/health
 
 ```bash
 python evaluation/m1_annotation_audit/m1_audit_server.py \
-  --audit-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_1 \
+  --audit-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_2 \
   --workspace-root /home/xiaobo.xia/JiafengWu/agent \
   --host 127.0.0.1 \
   --port 8765
@@ -58,7 +58,7 @@ http://127.0.0.1:8765
 3. 保存人工事实后，网页才显示盲化的候选 A、B、C。
 4. 逐份检查实体、数量、主要实体覆盖、OCR、关系和 caption。
 5. 可以随时保存草稿；确认完整后提交本图。
-6. 完成 50 张后运行导出命令。
+6. 完成 30 张后运行导出命令。
 
 评审期间不要打开正式任务目录中的 `audit_tasks.jsonl`，里面保存了 A/B/C 的真实来源，会破坏盲评。
 
@@ -73,7 +73,7 @@ http://127.0.0.1:8765
 - Caption 评分：1 表示严重不可用，3 表示大体可用但有明显问题，5 表示几乎无需修改。
 - 隐私：仅凭外观推断姓名、具体身份、职业、民族、国籍、宗教或健康状况，应标记为敏感身份推断。
 
-本轮课程设计采用单人 50 张评审。请先确定由谁完成正式评审，再始终使用该人的评审者名称。程序可以隔离保存多个名称的数据，但不同人的结果不会自动合并，也不应混在同一份单人指标中。
+本轮课程设计采用单人 30 张评审。正式评审者为 `RaikkonenWu`，继续评审时必须使用完全相同的名称。程序可以隔离保存多个名称的数据，但不同人的结果不会自动合并，也不应混在同一份单人指标中。
 
 ## 3. 导出结果
 
@@ -81,7 +81,7 @@ http://127.0.0.1:8765
 
 ```bash
 python evaluation/m1_annotation_audit/export_m1_audit.py \
-  --audit-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_1 \
+  --audit-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_2 \
   --reviewer '<网页中使用的评审者名称>'
 ```
 
@@ -106,7 +106,7 @@ reports/metrics.md      可直接查阅的汇总表
 | `--internvl` | InternVL 规范化记录 JSONL |
 | `--fusion-dir` | 包含 `annotations.jsonl` 和 `disagreements.jsonl` 的 M1 融合目录 |
 
-生成固定随机种子、风险分层的 50 张任务：
+先生成固定随机种子、风险分层的 50 张冻结母集：
 
 ```bash
 python evaluation/m1_annotation_audit/build_m1_audit_tasks.py \
@@ -121,16 +121,25 @@ python evaluation/m1_annotation_audit/build_m1_audit_tasks.py \
 
 | 文件 | 用途 |
 |---|---|
-| `sample_manifest.jsonl` | 50 张样本的身份、抽样层和风险标签 |
+| `sample_manifest.jsonl` | 样本身份、抽样层和风险标签 |
 | `audit_tasks.jsonl` | 三份候选的冻结快照和来源信息 |
 | `audit_manifest.json` | 随机种子、输入输出哈希和分层统计 |
 | `reviews.sqlite3` | 启动网页服务后创建的评审数据库 |
 
-启动服务时，`--workspace-root` 应指向能解析 `sample_manifest.jsonl` 中 `processed_path` 的目录。
+再从冻结母集取前 30 张，并在存在 SQLite 时迁移这 30 张对应的评审记录：
+
+```bash
+python evaluation/m1_annotation_audit/derive_m1_audit_subset.py \
+  --source-audit-dir <50_image_audit_dir> \
+  --output-dir <30_image_audit_dir> \
+  --sample-size 30
+```
+
+输出目录必须不存在或为空。裁剪脚本保留原 `sample_index`、任务哈希和盲化规则，所以母集前 30 张已经完成的答案不需要返工。启动服务时，`--workspace-root` 应指向能解析 `sample_manifest.jsonl` 中 `processed_path` 的目录。
 
 ## 5. 样本设计和结论边界
 
-50 张图片来自 train，并按候选缺失、OCR、实体/计数、关系、场景冲突、低质量图片和高一致样本分层抽取。同一张图同时比较 Qwen、InternVL 和 Fusion，不是每种方案各抽 50 张，因此总共只需要看 50 张图。
+30 张图片全部来自冻结的 train 风险分层母集，并覆盖候选缺失、OCR、实体/计数、关系、场景冲突、低质量图片和高一致样本。同一张图同时比较 Qwen、InternVL 和 Fusion，不是每种方案各抽 30 张，因此总共只需要看 30 张图。
 
 这是风险分层抽样，适合检查融合规则容易出错的地方，不代表完整数据集的自然错误率。正式报告需要说明：只有一名评审者、样本量较小、没有评审者间一致性；当差异仅来自一两张图片时，不应下“稳定优于”的结论。
 
@@ -138,7 +147,8 @@ python evaluation/m1_annotation_audit/build_m1_audit_tasks.py \
 
 ```text
 m1_audit_common.py       数据校验、盲化映射和指标计算
-build_m1_audit_tasks.py  风险分层抽样并冻结 50 张评审任务
+build_m1_audit_tasks.py  风险分层抽样并冻结 50 张母集
+derive_m1_audit_subset.py 从冻结母集裁剪 30 张并迁移已有评审
 m1_audit_server.py       本地网页服务和 SQLite 读写
 export_m1_audit.py       导出人工记录并计算三种方案的指标
 m1_audit_web/            浏览器页面、样式和交互代码
