@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>M1 三模型盲评</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <section id="loginView" class="login-view">
+    <div class="login-panel">
+      <p class="eyebrow">M1 BLIND RATING</p>
+      <h1>三模型标注盲评</h1>
+      <label for="reviewerInput">评审者名称</label>
+      <div class="login-row">
+        <input id="reviewerInput" maxlength="40" autocomplete="name" placeholder="输入固定名称">
+        <button id="loginButton" class="primary">进入评审</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="appView" class="hidden">
+    <header class="topbar">
+      <div class="brand-block">
+        <span class="brand-mark">M1</span>
+        <div><strong>三模型盲评</strong><span id="reviewerLabel" class="muted"></span></div>
+      </div>
+      <div class="progress-block">
+        <div class="progress-copy">
+          <span id="progressText">0 / 50 已提交</span>
+          <span id="draftText" class="muted">0 份草稿</span>
+        </div>
+        <div class="progress-track"><span id="progressBar"></span></div>
+      </div>
+      <button id="switchReviewerButton" class="quiet">切换评审者</button>
+    </header>
+
+    <div class="workspace">
+      <aside class="queue-panel">
+        <div class="queue-head">
+          <strong>样本</strong>
+          <div class="queue-filters" role="group" aria-label="筛选样本">
+            <button class="filter active" data-filter="all">全部</button>
+            <button class="filter" data-filter="pending">未完成</button>
+            <button class="filter" data-filter="submitted">已提交</button>
+          </div>
+        </div>
+        <div id="taskList" class="task-list"></div>
+      </aside>
+
+      <main class="review-shell">
+        <section class="image-panel">
+          <div class="image-head">
+            <div>
+              <span id="sampleIndex" class="eyebrow"></span>
+              <h2 id="imageTitle">选择一个样本</h2>
+            </div>
+            <button id="fitImageButton" class="icon-button" title="切换适应窗口或原始尺寸" aria-label="切换图片显示方式">↔</button>
+          </div>
+          <div id="imageStage" class="image-stage">
+            <img id="ratingImage" alt="当前评审图片">
+          </div>
+        </section>
+
+        <section class="rating-panel">
+          <div id="emptyState" class="empty-state"><strong>从左侧选择样本</strong></div>
+
+          <form id="ratingForm" class="hidden">
+            <div class="rating-head">
+              <div>
+                <p class="eyebrow">ANONYMOUS A / B / C</p>
+                <h2>比较三份标注</h2>
+              </div>
+              <span id="statusChip" class="status-chip">未开始</span>
+            </div>
+
+            <div class="score-guide">
+              <span><strong>1</strong> 基本不可用</span>
+              <span><strong>3</strong> 主体基本正确，需明显修改</span>
+              <span><strong>5</strong> 主要内容准确完整，可直接使用</span>
+            </div>
+
+            <div id="candidateList" class="candidate-list"></div>
+
+            <section class="best-section">
+              <h3>本图最佳结果</h3>
+              <div id="bestChoice" class="best-options" role="radiogroup"></div>
+              <label class="notes-control">备注（可选）
+                <textarea id="notes" maxlength="1000" rows="2" placeholder="仅记录影响判断的问题"></textarea>
+              </label>
+            </section>
+
+            <div class="sticky-actions">
+              <button id="reopenButton" type="button" class="secondary hidden">重新打开本图</button>
+              <span id="saveState" class="save-state muted">尚未保存</span>
+              <button id="saveButton" type="button" class="secondary">保存草稿</button>
+              <button id="submitButton" type="submit" class="primary">提交并进入下一张</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
