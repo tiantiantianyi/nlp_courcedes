@@ -25,8 +25,8 @@
 
 - Create: `docs/personal_report/evidence.md` — 贡献归属、提交、实测数字和允许措辞的内部台账，不作为最终提交正文。
 - Create: `docs/personal_report/references.bib` — Chinese-CLIP、jina-clip-v2、RRF、VIST、VLM reranking 等实际引用条目。
-- Create: `docs/personal_report/zhang_tianyi_personal_report.tex` — 个人报告唯一 LaTeX 主文件。
-- Create: `docs/personal_report/zhang_tianyi_personal_report.pdf` — 经本机编译和检查的最终 PDF。
+- Create: `docs/personal_report/张添翼_U202315231_个人报告.tex` — 个人报告唯一 LaTeX 主文件。
+- Create: `docs/personal_report/张添翼_U202315231_个人报告.pdf` — 经本机编译和检查的最终 PDF。
 - Modify: `.gitignore` — 忽略个人报告目录下的 LaTeX 辅助文件，不忽略 `.tex/.bib/.pdf`。
 - Reference only: `docs/M4_QUERY_BACKENDS_2026-08-11.md`、`docs/M5_FUSION_COMPARISON_2026-08-11.md`、`docs/M6_LISTWISE_TOP20_2026-08-11.md`、`docs/M7_AUTO_STORY_UI_2026-08-11.md`、`docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md`。
 
@@ -178,7 +178,7 @@ git commit -m "docs: add personal report bibliography"
 ### Task 3: 编写个人报告 LaTeX 正文
 
 **Files:**
-- Create: `docs/personal_report/zhang_tianyi_personal_report.tex`
+- Create: `docs/personal_report/张添翼_U202315231_个人报告.tex`
 - Consume: `docs/personal_report/evidence.md`
 - Consume: `docs/personal_report/references.bib`
 
@@ -282,7 +282,7 @@ Run:
 
 ```bash
 rg -n '从零实现|完成全部M3|完成全部 M3|正式质量提升|显著优于|准确率提高' \
-  docs/personal_report/zhang_tianyi_personal_report.tex
+  docs/personal_report/张添翼_U202315231_个人报告.tex
 ```
 
 Expected: no matches.
@@ -292,7 +292,7 @@ Expected: no matches.
 Run:
 
 ```bash
-rg -o '\\cite[a-zA-Z]*\{[^}]+\}' docs/personal_report/zhang_tianyi_personal_report.tex
+rg -o '\\cite[a-zA-Z]*\{[^}]+\}' docs/personal_report/张添翼_U202315231_个人报告.tex
 rg -o '^@[^{]+\{[^,]+' docs/personal_report/references.bib
 ```
 
@@ -301,7 +301,7 @@ Expected: every cited key exists in `references.bib`.
 - [ ] **Step 10: Commit the LaTeX source**
 
 ```bash
-git add docs/personal_report/zhang_tianyi_personal_report.tex
+git add docs/personal_report/张添翼_U202315231_个人报告.tex
 git commit -m "docs: draft Zhang Tianyi personal report"
 ```
 
@@ -358,9 +358,9 @@ Expected: each `kpsewhich` prints a path and latexmk prints a version.
 ### Task 5: 编译报告并修复所有 LaTeX 错误
 
 **Files:**
-- Modify: `docs/personal_report/zhang_tianyi_personal_report.tex`
+- Modify: `docs/personal_report/张添翼_U202315231_个人报告.tex`
 - Modify: `docs/personal_report/references.bib`
-- Create: `docs/personal_report/zhang_tianyi_personal_report.pdf`
+- Create: `docs/personal_report/张添翼_U202315231_个人报告.pdf`
 - Modify: `.gitignore`
 
 **Interfaces:**
@@ -388,7 +388,7 @@ docs/personal_report/*.xdv
 From `docs/personal_report` run:
 
 ```bash
-latexmk -xelatex -interaction=nonstopmode -halt-on-error zhang_tianyi_personal_report.tex
+latexmk -xelatex -interaction=nonstopmode -halt-on-error 张添翼_U202315231_个人报告.tex
 ```
 
 Expected: first successful build creates `.pdf`; if it fails, use the first LaTeX error in `.log`, fix only that cause and rerun.
@@ -399,7 +399,7 @@ Run:
 
 ```bash
 rg -n 'Undefined control sequence|LaTeX Error|Citation.*undefined|Reference.*undefined|There were undefined' \
-  docs/personal_report/zhang_tianyi_personal_report.log
+  docs/personal_report/张添翼_U202315231_个人报告.log
 ```
 
 Expected: no matches.
@@ -409,7 +409,7 @@ Expected: no matches.
 Run:
 
 ```bash
-rg -n 'Overfull \\hbox|Overfull \\vbox' docs/personal_report/zhang_tianyi_personal_report.log
+rg -n 'Overfull \\hbox|Overfull \\vbox' docs/personal_report/张添翼_U202315231_个人报告.log
 ```
 
 Expected: no matches wider than 5 pt. Fix long URLs with `\url{}`, long code with `\path{}`, and wide tables with `tabularx`; do not shrink all text globally.
@@ -419,7 +419,7 @@ Expected: no matches wider than 5 pt. Fix long URLs with `\url{}`, long code wit
 Run:
 
 ```bash
-pdfinfo docs/personal_report/zhang_tianyi_personal_report.pdf | rg 'Pages|Page size|File size'
+pdfinfo docs/personal_report/张添翼_U202315231_个人报告.pdf | rg 'Pages|Page size|File size'
 ```
 
 Expected: A4 and 5--7 pages. If above 7, shorten background and appendix prose. If below 5, expand technical diagnosis/reflection using existing evidence, not invented results.
@@ -429,7 +429,7 @@ Expected: A4 and 5--7 pages. If above 7, shorten background and appendix prose. 
 Run:
 
 ```bash
-pdftotext docs/personal_report/zhang_tianyi_personal_report.pdf /tmp/zhang-tianyi-report.txt
+pdftotext docs/personal_report/张添翼_U202315231_个人报告.pdf /tmp/zhang-tianyi-report.txt
 rg -n '张添翼|U202315231|队友|共同依赖|relevance|122 passed' /tmp/zhang-tianyi-report.txt
 rg -n 'TBD|TODO|PLACEHOLDER|undefined|从零实现|显著优于' /tmp/zhang-tianyi-report.txt
 ```
@@ -439,8 +439,8 @@ Expected: first command finds all required identity/boundary terms; second finds
 - [ ] **Step 7: Commit compiled source and PDF**
 
 ```bash
-git add .gitignore docs/personal_report/zhang_tianyi_personal_report.tex \
-  docs/personal_report/references.bib docs/personal_report/zhang_tianyi_personal_report.pdf
+git add .gitignore docs/personal_report/张添翼_U202315231_个人报告.tex \
+  docs/personal_report/references.bib docs/personal_report/张添翼_U202315231_个人报告.pdf
 git commit -m "docs: compile Zhang Tianyi personal report"
 ```
 
@@ -451,8 +451,8 @@ Expected: no `.aux/.log/.out/.toc` files staged.
 ### Task 6: 最终视觉检查、仓库验证与交付
 
 **Files:**
-- Inspect: `docs/personal_report/zhang_tianyi_personal_report.pdf`
-- Inspect: `docs/personal_report/zhang_tianyi_personal_report.tex`
+- Inspect: `docs/personal_report/张添翼_U202315231_个人报告.pdf`
+- Inspect: `docs/personal_report/张添翼_U202315231_个人报告.tex`
 - Inspect: repository status
 
 **Interfaces:**
@@ -465,7 +465,7 @@ Run:
 
 ```bash
 mkdir -p /tmp/zhang-tianyi-report-pages
-pdftoppm -png -r 110 docs/personal_report/zhang_tianyi_personal_report.pdf \
+pdftoppm -png -r 110 docs/personal_report/张添翼_U202315231_个人报告.pdf \
   /tmp/zhang-tianyi-report-pages/page
 ```
 
@@ -501,7 +501,7 @@ Run:
 
 ```bash
 git log -3 --oneline
-sha256sum docs/personal_report/zhang_tianyi_personal_report.pdf
+sha256sum docs/personal_report/张添翼_U202315231_个人报告.pdf
 ```
 
 Expected: report commits visible and a stable PDF SHA256 printed for handoff.

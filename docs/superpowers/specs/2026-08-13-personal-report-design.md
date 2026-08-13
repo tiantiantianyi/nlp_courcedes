@@ -143,9 +143,9 @@ BibTeX 文件；若只引用少量论文和项目文档，正文保持简洁引�
 
 ```text
 docs/personal_report/
-├── zhang_tianyi_personal_report.tex
+├── 张添翼_U202315231_个人报告.tex
 ├── references.bib
-└── zhang_tianyi_personal_report.pdf
+└── 张添翼_U202315231_个人报告.pdf
 ```
 
 源文件和最终 PDF 均提交 Git。LaTeX 辅助文件 `.aux/.log/.out/.toc/.bbl/.blg/.fls/.fdb_latexmk`
@@ -162,9 +162,9 @@ docs/personal_report/
 
 ```bash
 latexmk -xelatex -interaction=nonstopmode -halt-on-error \
-  docs/personal_report/zhang_tianyi_personal_report.tex
-pdfinfo docs/personal_report/zhang_tianyi_personal_report.pdf
-pdftotext docs/personal_report/zhang_tianyi_personal_report.pdf -
+  docs/personal_report/张添翼_U202315231_个人报告.tex
+pdfinfo docs/personal_report/张添翼_U202315231_个人报告.pdf
+pdftotext docs/personal_report/张添翼_U202315231_个人报告.pdf -
 ```
 
 通过条件：编译退出码为 0，PDF 约 5--7 页，姓名学号正确，中文可提取，无未定义引用，
