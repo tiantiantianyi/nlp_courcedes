@@ -36,3 +36,14 @@ Qwen--Qwen3-VL-2B-Instruct/
 stablediffusion/
 Train/
 Val/
+
+# Personal LaTeX report build artifacts
+docs/personal_report/*.aux
+docs/personal_report/*.bbl
+docs/personal_report/*.blg
+docs/personal_report/*.fdb_latexmk
+docs/personal_report/*.fls
+docs/personal_report/*.log
+docs/personal_report/*.out
+docs/personal_report/*.toc
+docs/personal_report/*.xdv
