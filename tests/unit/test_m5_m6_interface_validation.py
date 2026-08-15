@@ -47,6 +47,7 @@ def _fixture_paths(
     payloads: list[dict[str, object]] | None = None,
     corrupt_image: bool = False,
     catalog_path_mismatch: bool = False,
+    declared_jsonl_elsewhere: bool = False,
 ) -> dict[str, Path]:
     project_root = tmp_path / "project"
     index_dir = project_root / "artifacts" / "indexes" / "val"
@@ -77,11 +78,24 @@ def _fixture_paths(
             }
         )
 
-    annotations_path = index_dir / "annotations.json"
-    annotations_path.write_text(
-        json.dumps(annotations, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    if declared_jsonl_elsewhere:
+        annotations_path = (
+            project_root / "artifacts" / "manifests" / "val.jsonl"
+        )
+        annotations_path.parent.mkdir(parents=True)
+        annotations_path.write_text(
+            "\n".join(
+                json.dumps(row, ensure_ascii=False) for row in annotations
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    else:
+        annotations_path = index_dir / "annotations.json"
+        annotations_path.write_text(
+            json.dumps(annotations, ensure_ascii=False),
+            encoding="utf-8",
+        )
     manifest_path = index_dir / "manifest.json"
     manifest_path.write_text(
         json.dumps(
@@ -117,14 +131,17 @@ def _fixture_paths(
         "train_dir": train_dir,
         "val_dir": val_dir,
         "index_manifest_path": manifest_path,
+        "annotation_path": annotations_path,
     }
 
 
 def test_valid_file_returns_batches_and_zero_issues(tmp_path: Path) -> None:
     paths = _fixture_paths(tmp_path)
+    annotation_path = paths.pop("annotation_path")
 
     batches, report = validate_interface_file(**paths)
 
+    assert annotation_path.is_file()
     assert report.valid
     assert report.query_count == 1
     assert report.candidate_count == 20
@@ -144,6 +161,7 @@ def test_validator_collects_duplicate_query_path_and_branch_errors(
         tmp_path,
         payloads=[valid, wrong_path, branch_error],
     )
+    paths.pop("annotation_path")
 
     batches, report = validate_interface_file(**paths)
 
@@ -166,6 +184,7 @@ def test_validator_rejects_manifest_hash_and_candidate_path_mismatch(
         payloads=[payload],
         catalog_path_mismatch=True,
     )
+    paths.pop("annotation_path")
 
     _, report = validate_interface_file(**paths)
 
@@ -174,6 +193,7 @@ def test_validator_rejects_manifest_hash_and_candidate_path_mismatch(
 
 def test_validator_rejects_nonfinite_score(tmp_path: Path) -> None:
     paths = _fixture_paths(tmp_path)
+    paths.pop("annotation_path")
     raw = paths["input_path"].read_text(encoding="utf-8").replace(
         '"fused_score": 1.0',
         '"fused_score": NaN',
@@ -188,6 +208,7 @@ def test_validator_rejects_nonfinite_score(tmp_path: Path) -> None:
 
 def test_validator_rejects_corrupt_image(tmp_path: Path) -> None:
     paths = _fixture_paths(tmp_path, corrupt_image=True)
+    paths.pop("annotation_path")
 
     _, report = validate_interface_file(**paths)
 
@@ -198,7 +219,41 @@ def test_validator_rejects_nineteen_candidates(tmp_path: Path) -> None:
     payload = _batch()
     payload["candidates"] = payload["candidates"][:-1]  # type: ignore[index]
     paths = _fixture_paths(tmp_path, payloads=[payload])
+    paths.pop("annotation_path")
 
     _, report = validate_interface_file(**paths)
 
     assert "E_CANDIDATE_COUNT" in {issue.code for issue in report.issues}
+
+
+def test_validator_rejects_tampered_declared_annotation_artifact(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture_paths(tmp_path)
+    annotation_path = paths.pop("annotation_path")
+    annotation_path.write_text(
+        annotation_path.read_text(encoding="utf-8") + " ",
+        encoding="utf-8",
+    )
+
+    _, report = validate_interface_file(**paths)
+
+    assert "E_MANIFEST_MISMATCH" in {
+        issue.code for issue in report.issues
+    }
+    assert any(
+        "annotation_sha256" in issue.message for issue in report.issues
+    )
+
+
+def test_validator_loads_declared_jsonl_annotation_artifact(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture_paths(tmp_path, declared_jsonl_elsewhere=True)
+    annotation_path = paths.pop("annotation_path")
+
+    batches, report = validate_interface_file(**paths)
+
+    assert annotation_path.name == "val.jsonl"
+    assert report.valid
+    assert len(batches) == 1

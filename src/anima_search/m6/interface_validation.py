@@ -78,6 +78,7 @@ def _resolve_candidate_path(project_root: Path, relative_path: str) -> Path:
 
 def _load_manifest_catalog(
     index_manifest_path: Path,
+    project_root: Path,
     issues: list[InterfaceIssue],
 ) -> tuple[dict[str, Any], dict[str, str]]:
     try:
@@ -91,26 +92,78 @@ def _load_manifest_catalog(
         )
         return {}, {}
 
-    annotations_path = index_manifest_path.parent / "annotations.json"
+    declared_path = manifest.get("annotation_path")
+    declared_sha256 = manifest.get("annotation_sha256")
+    if not isinstance(declared_path, str) or not declared_path.strip():
+        issues.append(
+            InterfaceIssue(
+                code="E_MANIFEST_MISMATCH",
+                message="index manifest must declare annotation_path",
+            )
+        )
+        return manifest, {}
+    if not isinstance(declared_sha256, str) or not declared_sha256.strip():
+        issues.append(
+            InterfaceIssue(
+                code="E_MANIFEST_MISMATCH",
+                message="index manifest must declare annotation_sha256",
+            )
+        )
+        return manifest, {}
+
+    annotations_path = Path(declared_path)
+    if not annotations_path.is_absolute():
+        annotations_path = project_root / annotations_path
+    annotations_path = annotations_path.resolve()
     try:
-        rows = json.loads(annotations_path.read_text(encoding="utf-8"))
-        if not isinstance(rows, list):
-            raise ValueError("annotations.json must contain a JSON array")
+        actual_sha256 = sha256_file(annotations_path)
+        if actual_sha256 != declared_sha256:
+            issues.append(
+                InterfaceIssue(
+                    code="E_MANIFEST_MISMATCH",
+                    message=(
+                        "manifest annotation_sha256 does not match declared "
+                        f"artifact: {annotations_path}"
+                    ),
+                )
+            )
+
+        text = annotations_path.read_text(encoding="utf-8")
+        if text.lstrip().startswith("["):
+            rows = json.loads(text)
+            if not isinstance(rows, list):
+                raise ValueError("annotation artifact must contain a JSON array")
+        else:
+            rows = [
+                json.loads(line)
+                for line in text.splitlines()
+                if line.strip()
+            ]
+        if any(not isinstance(row, dict) for row in rows):
+            raise ValueError("annotation artifact rows must be JSON objects")
+        if any(
+            "image_id" not in row or "relative_path" not in row
+            for row in rows
+        ):
+            raise ValueError(
+                "annotation artifact rows require image_id and relative_path"
+            )
         catalog = {
             str(row["image_id"]): str(row["relative_path"])
             for row in rows
-            if isinstance(row, dict)
         }
         image_ids = [
             str(row["image_id"])
             for row in rows
-            if isinstance(row, dict) and "image_id" in row
         ]
     except Exception as exc:
         issues.append(
             InterfaceIssue(
                 code="E_MANIFEST_MISMATCH",
-                message=f"cannot read index annotations: {type(exc).__name__}: {exc}",
+                message=(
+                    "cannot read declared annotation artifact: "
+                    f"{type(exc).__name__}: {exc}"
+                ),
             )
         )
         return manifest, {}
@@ -119,14 +172,18 @@ def _load_manifest_catalog(
         issues.append(
             InterfaceIssue(
                 code="E_MANIFEST_MISMATCH",
-                message="manifest record_count does not match annotations.json",
+                message=(
+                    "manifest record_count does not match annotation artifact"
+                ),
             )
         )
     if manifest.get("image_ids_sha256") != image_ids_digest(image_ids):
         issues.append(
             InterfaceIssue(
                 code="E_MANIFEST_MISMATCH",
-                message="manifest image_ids_sha256 does not match annotations.json",
+                message=(
+                    "manifest image_ids_sha256 does not match annotation artifact"
+                ),
             )
         )
     return manifest, catalog
@@ -227,7 +284,11 @@ def validate_interface_file(
     parsed_batches: list[tuple[int, M5QueryBatch]] = []
     seen_query_ids: dict[str, int] = {}
 
-    manifest, catalog = _load_manifest_catalog(index_manifest_path, issues)
+    manifest, catalog = _load_manifest_catalog(
+        index_manifest_path,
+        project_root.resolve(),
+        issues,
+    )
     try:
         manifest_hash = sha256_file(index_manifest_path)
     except OSError:

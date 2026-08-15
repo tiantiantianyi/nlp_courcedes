@@ -58,6 +58,8 @@ def _delivery(tmp_path: Path, *, candidate_count: int = 20) -> dict[str, Path]:
                 "split": "val",
                 "record_count": 20,
                 "image_ids_sha256": image_ids_digest(image_ids),
+                "annotation_path": str(annotations_path),
+                "annotation_sha256": sha256_file(annotations_path),
                 "annotation_version": "qwen35-canonical-v1.3",
                 "config_digest": "b" * 64,
             }
