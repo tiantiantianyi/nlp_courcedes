@@ -1,0 +1,456 @@
+{
+    "package":  "anima-m3-m5-delivery-20260809",
+    "generated_at":  "2026-08-09T10:43:40.9085646+08:00",
+    "scope":  "Anima M3-M5 source, configs, tests, and teammate handoff documentation",
+    "verification":  {
+                         "automated_tests":  "39 passed",
+                         "compileall":  "passed",
+                         "pip_check":  "passed",
+                         "smoke_records":  20,
+                         "smoke_branches":  [
+                                                "image",
+                                                "text",
+                                                "bm25"
+                                            ],
+                         "smoke_query":  "日落高速公路，没有人物",
+                         "smoke_top_id":  "train-0",
+                         "smoke_branch_ranks":  {
+                                                    "image":  1,
+                                                    "text":  1,
+                                                    "bm25":  1
+                                                },
+                         "qwen_rerank_candidates":  1,
+                         "qwen_rerank_score":  95
+                     },
+    "excluded":  [
+                     "model weights",
+                     "raw Train/Val images",
+                     "incomplete M2 annotations",
+                     "built indexes",
+                     ".pixi environment",
+                     "cache files"
+                 ],
+    "file_count":  84,
+    "files":  [
+                  {
+                      "path":  ".gitignore",
+                      "size_bytes":  277,
+                      "sha256":  "8792b20c6662221b2f644703056d12ae2e9a8f037b954f5b9962fc67941d1372"
+                  },
+                  {
+                      "path":  "configs/default.yaml",
+                      "size_bytes":  949,
+                      "sha256":  "5b4e348a12776d565b3e230f89e33d05c8562cb52797376336d1dd13f8993e66"
+                  },
+                  {
+                      "path":  "configs/prompts/caption_basic.txt",
+                      "size_bytes":  173,
+                      "sha256":  "90791a95b5c7e26f7f2356bf6ddf0bcfa3450d1dc2414402592221f6f79ab10b"
+                  },
+                  {
+                      "path":  "configs/prompts/caption_structured.txt",
+                      "size_bytes":  379,
+                      "sha256":  "53edcbd54b8ae5d6ba4678c6382fa6369b9df9c0a60a9edcea703c00e017f472"
+                  },
+                  {
+                      "path":  "configs/prompts/caption_verified.txt",
+                      "size_bytes":  1271,
+                      "sha256":  "a03b99e62c8ee387f50544bc21eb24c8f1c29aa0d7274174276b1a38ce1555ea"
+                  },
+                  {
+                      "path":  "configs/prompts/caption_verified_v4.txt",
+                      "size_bytes":  3931,
+                      "sha256":  "97fa6bd16945ac1ee7491e5aad3c09e45b39d6af4ae1a52f8b1b29a380920105"
+                  },
+                  {
+                      "path":  "configs/prompts/content_writer.txt",
+                      "size_bytes":  268,
+                      "sha256":  "5d47b06716c9a3ea39a97d99b4c22527759e097a296fcc5cd28b1a6cb23a5df2"
+                  },
+                  {
+                      "path":  "configs/prompts/query_parser.txt",
+                      "size_bytes":  509,
+                      "sha256":  "e2aee37636fcc0ad52761645714706b1bf19f739d3388f64160d3073e756cce5"
+                  },
+                  {
+                      "path":  "configs/prompts/reranker.txt",
+                      "size_bytes":  260,
+                      "sha256":  "c93e65d8ef91cb3d10f91ac052c87661093c0ec3c5a010dac29b1ade013a8244"
+                  },
+                  {
+                      "path":  "configs/prompts/sd_prompt.txt",
+                      "size_bytes":  292,
+                      "sha256":  "a3beb5d36a7b2ed8fd6a973d15be6c425c2434afb220009666582e288641e005"
+                  },
+                  {
+                      "path":  "configs/retrieval_aliases.yaml",
+                      "size_bytes":  997,
+                      "sha256":  "25eff2df0c22d6085129bd9cfa831f11d47bab4f12aeba278f77e720cfb80548"
+                  },
+                  {
+                      "path":  "M3-M5_IMPLEMENTATION_PLAN.md",
+                      "size_bytes":  20867,
+                      "sha256":  "436bc3aa2ace554c9d7c4ff6894fd81a9eeda07db3db6e597679280f44937aa0"
+                  },
+                  {
+                      "path":  "pixi.lock",
+                      "size_bytes":  124814,
+                      "sha256":  "eeb0e5f4fcc46eed95e9f55b1e7683e683221e28fb52406fb45d79ec2554c43f"
+                  },
+                  {
+                      "path":  "pixi.toml",
+                      "size_bytes":  1212,
+                      "sha256":  "9eb90ce742666cdca9172cc9989ff905037430de83763339347d7cda190378df"
+                  },
+                  {
+                      "path":  "pyproject.toml",
+                      "size_bytes":  352,
+                      "sha256":  "bd3edea52d33c2cc6e71623a72e54a57c3e816c1f95acfd12935dec056b65acc"
+                  },
+                  {
+                      "path":  "README.md",
+                      "size_bytes":  10858,
+                      "sha256":  "057ad74f1c7d241f4204218e513dc9e18af9f523fe0f6e45e972431ce92a0883"
+                  },
+                  {
+                      "path":  "requirements-m3-m5.txt",
+                      "size_bytes":  310,
+                      "sha256":  "a589b310312307bfe50878c5fb8d4a3c43bcb997a0ce4dd0e5f5ae9ed21849d3"
+                  },
+                  {
+                      "path":  "scripts/annotate_images.py",
+                      "size_bytes":  2424,
+                      "sha256":  "59911bb0d6d162cba09e27b8ae810fecd3ef39975eb058709fccca0a7814a52e"
+                  },
+                  {
+                      "path":  "scripts/build_indexes.py",
+                      "size_bytes":  7582,
+                      "sha256":  "4dfbe112720de201da9752a58ab2a6e368bfe7b7d1475df5698a20c61e2e6ffa"
+                  },
+                  {
+                      "path":  "scripts/build_manifest.py",
+                      "size_bytes":  1509,
+                      "sha256":  "852a4824593f171e8d20cd6e240cb65a888f8bbe634d7cf9b124206574a57149"
+                  },
+                  {
+                      "path":  "scripts/build_training_pairs.py",
+                      "size_bytes":  1209,
+                      "sha256":  "a622de1e1da4625db6164459d2e90dbe6fcf84d70c84f5c932ca61da8f4fdc84"
+                  },
+                  {
+                      "path":  "scripts/compare_prompts.py",
+                      "size_bytes":  2687,
+                      "sha256":  "af1c19823be7a172a94d5441d01a6439bf1a605e4743ab48766e06abbf544695"
+                  },
+                  {
+                      "path":  "scripts/create_eval_set.py",
+                      "size_bytes":  2088,
+                      "sha256":  "43ff711e7d14f2bf841f8126c6697fd24b1864a1d61b4074c60c866366a770f4"
+                  },
+                  {
+                      "path":  "scripts/evaluate_retrieval.py",
+                      "size_bytes":  2783,
+                      "sha256":  "d9bf62e167bebed6aba98d2c93164f82d16b6413d0d2c4790cd52ac9a21a5931"
+                  },
+                  {
+                      "path":  "scripts/launch_app.py",
+                      "size_bytes":  924,
+                      "sha256":  "d071db4f10a2cda93aaa5e0483618402a0e9de90893c281e4dbf43c0eadf4b6b"
+                  },
+                  {
+                      "path":  "scripts/run_ablation.py",
+                      "size_bytes":  953,
+                      "sha256":  "877d3232519042f394cdecd4547d081ee77f0d502d2ff4d4cf84a1b86444fc13"
+                  },
+                  {
+                      "path":  "scripts/run_m3_m5_pipeline.py",
+                      "size_bytes":  6797,
+                      "sha256":  "6982424f81a8e6dcc215baa89c9ec6da781562f816ab616be56f2c8b65ed880e"
+                  },
+                  {
+                      "path":  "scripts/search_cli.py",
+                      "size_bytes":  934,
+                      "sha256":  "deae3e2991cc1243f62fa7e4644eb7398a3b517684b2027d436c2d18bb26aa96"
+                  },
+                  {
+                      "path":  "scripts/train_retriever.py",
+                      "size_bytes":  919,
+                      "sha256":  "fe4e2d0306917f9cc98ec7ae07139acb78a41b47528d6faa36125709ef9628a2"
+                  },
+                  {
+                      "path":  "scripts/verify_m3_m5.py",
+                      "size_bytes":  2739,
+                      "sha256":  "ce772156aeef720f44f46dadce411314af6e0abb2352a7baf0de9f56c3b04961"
+                  },
+                  {
+                      "path":  "src/anima_search/__init__.py",
+                      "size_bytes":  71,
+                      "sha256":  "b49214f1d305a83a893e0443f49baf3c5088ececbf740ba8ef4bb16df5a52b10"
+                  },
+                  {
+                      "path":  "src/anima_search/annotation/__init__.py",
+                      "size_bytes":  38,
+                      "sha256":  "187afe558f921669918ff54d7907510bb780dce75097b3c24fd0202f8522a5fc"
+                  },
+                  {
+                      "path":  "src/anima_search/annotation/pipeline.py",
+                      "size_bytes":  3531,
+                      "sha256":  "75702ca62a8f69ad0bc23e17fe3680694553ca2b4003a6c7e2c36979c7377ed1"
+                  },
+                  {
+                      "path":  "src/anima_search/annotation/qwen_client.py",
+                      "size_bytes":  4523,
+                      "sha256":  "6d103eba09b184496d4a29a34ac2a5dd345574dfd81aa321314fd42156f78759"
+                  },
+                  {
+                      "path":  "src/anima_search/annotation/validation.py",
+                      "size_bytes":  2867,
+                      "sha256":  "d9393d1a34ff2febd38f6b5850cb87682b53185b41cf25644850d57be23c2a83"
+                  },
+                  {
+                      "path":  "src/anima_search/app/__init__.py",
+                      "size_bytes":  35,
+                      "sha256":  "793ffd36417e0288fb9c76ae528d4459410040752aed470c6d938b89e6547b87"
+                  },
+                  {
+                      "path":  "src/anima_search/app/factory.py",
+                      "size_bytes":  4274,
+                      "sha256":  "3756ba4b6b03ef643757f09a4057627e7a00a2c710e0040e3395cfe4973c6841"
+                  },
+                  {
+                      "path":  "src/anima_search/app/service.py",
+                      "size_bytes":  3646,
+                      "sha256":  "129fea462a7ad65710ea7380f892567eeb6a883911bf4e9d37662828d367e66f"
+                  },
+                  {
+                      "path":  "src/anima_search/app/ui.py",
+                      "size_bytes":  4508,
+                      "sha256":  "27da6dcaafc8f5cff20215ea14bce3e6bb3b7644e41956ca62ae21030eafa9f2"
+                  },
+                  {
+                      "path":  "src/anima_search/config.py",
+                      "size_bytes":  579,
+                      "sha256":  "146cbc8b6034f6a6b2744e4f8822aacb03659588906e5f5c309563bade1d2180"
+                  },
+                  {
+                      "path":  "src/anima_search/data/__init__.py",
+                      "size_bytes":  26,
+                      "sha256":  "54df50a7332043aeec31f4c2f835a6ec33940ac1586e69bd55f42c572cace1d1"
+                  },
+                  {
+                      "path":  "src/anima_search/data/manifest.py",
+                      "size_bytes":  2124,
+                      "sha256":  "e54b05a05368bd75a2ecc99a4c5c1cd44a3526efc54ccc034661a9ae29e29e7e"
+                  },
+                  {
+                      "path":  "src/anima_search/evaluation/__init__.py",
+                      "size_bytes":  25,
+                      "sha256":  "79ded236d610908ef39261707f45704811c212e6fe40c6d0231ef4f4c1a3a7c1"
+                  },
+                  {
+                      "path":  "src/anima_search/evaluation/ablation.py",
+                      "size_bytes":  463,
+                      "sha256":  "6853e2cc08d57367984f3c58f6fd234ab0ecf552022242bbf00bb4f0fc7074cf"
+                  },
+                  {
+                      "path":  "src/anima_search/evaluation/ground_truth.py",
+                      "size_bytes":  564,
+                      "sha256":  "27cfec2864d2ba762ce2dc40fa273b9cac7e0f419b98d0e418c32706d8c280b4"
+                  },
+                  {
+                      "path":  "src/anima_search/evaluation/metrics.py",
+                      "size_bytes":  1636,
+                      "sha256":  "d58072c562d1f2d0dff8bf89168e103b57e264013dec21e04b08f0f04906aee7"
+                  },
+                  {
+                      "path":  "src/anima_search/generation/__init__.py",
+                      "size_bytes":  44,
+                      "sha256":  "43c5159d5c1e2b3dc70596ebd17f541ce1ba01a7270b094df262ed0973fbf847"
+                  },
+                  {
+                      "path":  "src/anima_search/generation/prompt_builder.py",
+                      "size_bytes":  608,
+                      "sha256":  "ae96b0e31b361062c4a47908145e91538831cd656179a5575e6a6d4cfc8243b7"
+                  },
+                  {
+                      "path":  "src/anima_search/generation/sd_generator.py",
+                      "size_bytes":  2281,
+                      "sha256":  "64bb7fd7b715cb53d5bdde9a2de14c9a659cf66d684d13a7df6afc453b0c6e9c"
+                  },
+                  {
+                      "path":  "src/anima_search/indexing/__init__.py",
+                      "size_bytes":  23,
+                      "sha256":  "25b4946501f7f9b66369c9f0e1535490e436ac381f44c51ee729f9f342cd3c77"
+                  },
+                  {
+                      "path":  "src/anima_search/indexing/bm25_index.py",
+                      "size_bytes":  1986,
+                      "sha256":  "874b687d5a67f71615952936a0f2bd6d22ebb17ebf34d258261001d94a9b15ce"
+                  },
+                  {
+                      "path":  "src/anima_search/indexing/documents.py",
+                      "size_bytes":  1978,
+                      "sha256":  "5243f8df2cb2594d288e9f69d9682532a20e349418d9419d03050cb9748503c1"
+                  },
+                  {
+                      "path":  "src/anima_search/indexing/faiss_io.py",
+                      "size_bytes":  580,
+                      "sha256":  "f638c8b4aabbe0261fa6a975c2c008a0035efe93278d74e4909c9c7328509128"
+                  },
+                  {
+                      "path":  "src/anima_search/indexing/image_vector_index.py",
+                      "size_bytes":  8587,
+                      "sha256":  "9e0720ef18b1df81b9c9faa7d318fd79a1ab76c2ebb5f2e2509fe5fd2b4217e0"
+                  },
+                  {
+                      "path":  "src/anima_search/indexing/index_manifest.py",
+                      "size_bytes":  2563,
+                      "sha256":  "bbe1ae76dd3964df5d6fdd316b47d1250c5ef9155e0bfacdfc6d70a88f0c082b"
+                  },
+                  {
+                      "path":  "src/anima_search/indexing/vector_index.py",
+                      "size_bytes":  4147,
+                      "sha256":  "edcfcb03f28c60322592da66504aa5190cd304b963373a64e49b1ca5c125afa9"
+                  },
+                  {
+                      "path":  "src/anima_search/provenance.py",
+                      "size_bytes":  720,
+                      "sha256":  "8c963d3a91ee646e8550b48931c3ff2071ddfcc74439466c54680b2c7135ba0b"
+                  },
+                  {
+                      "path":  "src/anima_search/retrieval/__init__.py",
+                      "size_bytes":  25,
+                      "sha256":  "33e5cf189038eec1f2f58648a7912218ad1a98810698313526055630a11644c6"
+                  },
+                  {
+                      "path":  "src/anima_search/retrieval/filters.py",
+                      "size_bytes":  3515,
+                      "sha256":  "d918d3604786a0c4f6a9f545d115b62c4237b14042a64e5c78f987ff43610ae0"
+                  },
+                  {
+                      "path":  "src/anima_search/retrieval/fusion.py",
+                      "size_bytes":  1137,
+                      "sha256":  "d84087fb20cb41d300fb82e27d34eb93e8d80997b120c3355faf8d345e251c26"
+                  },
+                  {
+                      "path":  "src/anima_search/retrieval/query_parser.py",
+                      "size_bytes":  3399,
+                      "sha256":  "a4625041ab480cdd9e777c9968826fabc057babd2eec029e296d08b07dccc93b"
+                  },
+                  {
+                      "path":  "src/anima_search/retrieval/reranker.py",
+                      "size_bytes":  2240,
+                      "sha256":  "bb015c8ba9bd36f260f71fe075d8deedecfec2907912f12772fa6b1888e4df88"
+                  },
+                  {
+                      "path":  "src/anima_search/retrieval/search.py",
+                      "size_bytes":  4093,
+                      "sha256":  "d3a9606e9944b01a45822c56735ac67fa9b023d145370596f2a3bcaeab2fa2bd"
+                  },
+                  {
+                      "path":  "src/anima_search/retrieval/terms.py",
+                      "size_bytes":  4364,
+                      "sha256":  "8a12328cc3d707931fc95a364f11271bca369baf12d44fdbbfbfd6102951c3ab"
+                  },
+                  {
+                      "path":  "src/anima_search/runtime/__init__.py",
+                      "size_bytes":  36,
+                      "sha256":  "39d6b941c376edcae47234e288b8700f7385b387d2b743e46517165cd66c5d48"
+                  },
+                  {
+                      "path":  "src/anima_search/runtime/model_manager.py",
+                      "size_bytes":  1812,
+                      "sha256":  "6e4f97f516c0aeb5d6d9e828acde881bde950b994e2bf8be936f9fbc9ba9fac2"
+                  },
+                  {
+                      "path":  "src/anima_search/schemas.py",
+                      "size_bytes":  2918,
+                      "sha256":  "b74b4923214d010eb0c2e01213e10eb4213b5c05a6fb32bed63919651ae94216"
+                  },
+                  {
+                      "path":  "src/anima_search/training/__init__.py",
+                      "size_bytes":  37,
+                      "sha256":  "a247147c3fde3851b45e5040be0b5340f34bff8449da2a50ba23849889a5776a"
+                  },
+                  {
+                      "path":  "src/anima_search/training/pairs.py",
+                      "size_bytes":  1729,
+                      "sha256":  "cfd75db50a378ba3ff48937f542fd05111f94a89a2daf7bbaea42b586bfb9e27"
+                  },
+                  {
+                      "path":  "src/anima_search/training/train_embedder.py",
+                      "size_bytes":  2371,
+                      "sha256":  "5bb3d2417b829c866ae2b4a0aa760cd3a040e0de5e59001c3848b678118dfbc5"
+                  },
+                  {
+                      "path":  "tests/integration/test_build_indexes_cli.py",
+                      "size_bytes":  3236,
+                      "sha256":  "33704e70cb8045461a8fde5b1c1897a82d5068ca2fbb490127555efc9c533e07"
+                  },
+                  {
+                      "path":  "tests/integration/test_m3_m5_pipeline.py",
+                      "size_bytes":  2079,
+                      "sha256":  "fac2827440261b5892a6e2207526864587e7dc60713f4a14abb5cd70d949f353"
+                  },
+                  {
+                      "path":  "tests/integration/test_service_contract.py",
+                      "size_bytes":  234,
+                      "sha256":  "5678ac72e67a0880553f1b726ceb614a8d3643ab7b42d4d7219075e5d7b04d3a"
+                  },
+                  {
+                      "path":  "tests/unit/test_core.py",
+                      "size_bytes":  2507,
+                      "sha256":  "4b612d46a7c64bd51ff813428f64b3eaccd38ef30412c7779d1b1ffe388ee45d"
+                  },
+                  {
+                      "path":  "tests/unit/test_evaluation_guards.py",
+                      "size_bytes":  517,
+                      "sha256":  "61b8101b024d2e1daa1daa0775d2edf240c658a466ace284629599d695b2f1c0"
+                  },
+                  {
+                      "path":  "tests/unit/test_filters.py",
+                      "size_bytes":  2079,
+                      "sha256":  "12f50715453ad1822fbd8d6ba3bb1f8930b7defae3527c3ed0f0c97d1ad0a37d"
+                  },
+                  {
+                      "path":  "tests/unit/test_full_pipeline.py",
+                      "size_bytes":  2398,
+                      "sha256":  "b47ac24c4aafa10ccf520f09607c6a1c833ba46af2d1ff70ca12e4c635e8f4bf"
+                  },
+                  {
+                      "path":  "tests/unit/test_indexing.py",
+                      "size_bytes":  3918,
+                      "sha256":  "57b2ae45ded837d5dcb89d1b7b2356538779c4305e21573a0a427c1cf670e2ad"
+                  },
+                  {
+                      "path":  "tests/unit/test_manifest_paths.py",
+                      "size_bytes":  433,
+                      "sha256":  "8642fb4e688794927681692968b50755e4da3e8612e01e8dc93eee7a4b072ed8"
+                  },
+                  {
+                      "path":  "tests/unit/test_metrics.py",
+                      "size_bytes":  356,
+                      "sha256":  "4222595e0002dd4ade52fb132281e3915eb1f0d1b9a2a8e7a30b38b15ede2236"
+                  },
+                  {
+                      "path":  "tests/unit/test_query_parser.py",
+                      "size_bytes":  2094,
+                      "sha256":  "df9e16899dab0d3120ca6ae7833815a1658ef62a80e86094c5896dd84d652a55"
+                  },
+                  {
+                      "path":  "tests/unit/test_reranker.py",
+                      "size_bytes":  2211,
+                      "sha256":  "899d076ae7b2f60b228376a9b384d8d5569618463b64150691c812a9cd3103bc"
+                  },
+                  {
+                      "path":  "tests/unit/test_retrieval.py",
+                      "size_bytes":  3028,
+                      "sha256":  "a4ac633aef4611e19bc216dcdd54b4520cc1cea39edb66c501a44dedd64dff65"
+                  },
+                  {
+                      "path":  "tests/unit/test_training_and_runtime.py",
+                      "size_bytes":  1736,
+                      "sha256":  "41002d200e8f33cf529796cbdbfbd4f117f8893ca3f0e1d18921effb44429004"
+                  }
+              ]
+}

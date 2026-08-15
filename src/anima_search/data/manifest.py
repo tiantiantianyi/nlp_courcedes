@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 from PIL import Image
@@ -41,7 +42,8 @@ def scan_split(root: Path, split: str, project_root: Path | None = None) -> list
         duplicate_of = first_by_hash.get(digest)
         first_by_hash.setdefault(digest, image_id)
         items.append(ManifestItem(
-            image_id=image_id, split=split, relative_path=path.relative_to(base).as_posix(),
+            image_id=image_id, split=split,
+            relative_path=Path(os.path.relpath(path, base)).as_posix(),
             sha256=digest, size_bytes=path.stat().st_size, duplicate_of=duplicate_of, **metadata,
         ))
     return items

@@ -8,7 +8,7 @@ from typing import Iterable
 
 from PIL import Image
 
-from anima_search.annotation.validation import extract_json_object
+from anima_search.annotation.validation import extract_annotation_json, normalize_annotation_payload
 from anima_search.schemas import ImageAnnotation, ManifestItem
 
 
@@ -36,13 +36,20 @@ def annotate_items(items: Iterable[ManifestItem], client: object, prompt: str, o
             try:
                 with Image.open(project_root / item.relative_path) as image:
                     raw = client.generate(image.copy(), current_prompt, max_new_tokens=max_new_tokens)
-                payload = extract_json_object(raw)
+                payload = normalize_annotation_payload(extract_annotation_json(raw))
                 metadata = getattr(client, "last_generation_metadata", {})
                 payload.update(image_id=item.image_id, split=item.split, relative_path=item.relative_path,
                                sha256=item.sha256, duplicate_of=item.duplicate_of,
                                model_version=str(client.model_path), model_digest=getattr(client, "model_digest", ""),
                                prompt_version=prompt_version, prompt_sha256=prompt_sha256,
-                               generation_parameters={"max_new_tokens": max_new_tokens, "do_sample": False},
+                               generation_parameters={
+                                   "max_new_tokens": max_new_tokens,
+                                   "do_sample": False,
+                                   "repetition_penalty": 1.10,
+                                   "max_image_pixels": getattr(client, "max_image_pixels", None),
+                                   "input_width": metadata.get("input_width"),
+                                   "input_height": metadata.get("input_height"),
+                               },
                                peak_vram_bytes=metadata.get("peak_vram_bytes"),
                                elapsed_seconds=time.perf_counter() - started)
                 annotation = ImageAnnotation.model_validate(payload)

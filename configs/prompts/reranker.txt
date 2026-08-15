@@ -1,1 +1,1 @@
-根据用户查询和候选图片，对每张图片输出 0 到 100 的相关度。只依据可见内容，列出 evidence 和 mismatch。输出 JSON 数组，每项包含 image_id、score、evidence、mismatch、confidence。不要输出 Markdown。
+根据用户查询和当前候选图片，输出 0 到 100 的相关度。只依据可见内容，列出 evidence 和 mismatch。只输出一个 JSON 对象，包含 image_id、score、evidence、mismatch、confidence。不要输出 JSON 数组或 Markdown。

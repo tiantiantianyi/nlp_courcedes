@@ -1,700 +1,373 @@
-# Anima：智能图文搜索与内容生成平台
+# Anima 视觉语言检索课程项目
 
-本项目使用 Qwen3-VL-2B 为无标注真实场景图片生成结构化描述，通过 BM25、BGE 文本向量和 RRF 融合实现中文自然语言搜图，再使用 Qwen3-VL 查看候选图片并进行视觉重排与解释。用户还可以对图片提问、生成文案，并使用 Stable Diffusion 1.5 生成补充图片。
+本仓库实现技术方案中的 M3–M7：多路索引、结构化查询理解、RRF 混合召回、可选 VLM pointwise 重排，以及带图片引用的问答和视觉故事。正式标注尚未冻结时，也可以使用 mock 或 image-only 模式继续开发。
 
-## 1. 功能
+视觉重排默认关闭，避免在普通搜索时意外加载 Qwen-VL。模拟数据和 image-only 占位记录只用于工程验证，不能作为课程报告的正式检索指标。
 
-- 为 Train/Val 图片建立带哈希、尺寸和重复信息的数据清单。
-- 使用三种 Prompt 比较普通描述、结构化描述和两阶段复核描述。
-- 使用 Qwen3-VL-2B 批量生成结构化 JSONL 伪标注，支持断点续跑。
-- 使用 BM25 与 BGE 建立稀疏、稠密双索引。
-- 使用 RRF 融合多路召回结果，并支持否定条件过滤。
-- 使用 Train 伪标注构造正样本、随机负样本和困难负样本，微调 BGE。
-- 使用 Qwen3-VL 对 Top-N 图片进行视觉重排并输出匹配证据。
-- 支持图片问答、标题、朋友圈文案和微型故事。
-- 使用 Stable Diffusion 1.5 生成补充图片，真实图和生成图严格区分。
-- 提供命令行搜索、Gradio Demo、标准检索指标和消融实验矩阵。
+## 阶段报告与实测图表
 
-## 2. 硬件与系统建议
+- [2026-08-10 阶段性技术报告](docs/STAGE_REPORT_2026-08-10.md)
+- [2026-08-10 四项优先任务实施报告](docs/PRIORITY_TASKS_REPORT_2026-08-10.md)
+- [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
+- [2026-08-11 M4 查询理解三后端报告](docs/M4_QUERY_BACKENDS_2026-08-11.md)
+- [2026-08-11 A7 图像编码器资源对比](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)
+- 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
+- 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 
-- Windows 10/11 64 位。
-- NVIDIA GPU，建议显存不低于 6 GB。
-- 当前机器已检测到 RTX 4050 Laptop 6 GB。
-- 建议使用 NVIDIA 驱动支持的 CUDA 版 PyTorch。
-- Python 必须使用 3.11；不要使用原先配置中的 Python 3.14。
-- 磁盘至少预留 15 GB，用于环境、BGE、伪标注、索引和生成结果。
+## 1. 三种运行模式
 
-Qwen3-VL 与 Stable Diffusion 由 `ModelManager` 互斥加载，避免同时占用 6 GB 显存。批量标注、训练和全量评测仍然是耗时操作，建议先使用 `--limit 10` 检查流程。
+| 模式 | 原图 | 正式标注 | 索引 | 模型 | 用途 |
+|---|---:|---:|---:|---:|---|
+| mock | 需要 | 不需要 | 不需要 | 不需要 | UI、接口和 M7 联调 |
+| image-only | 需要 | 不需要 | image 分支 | Chinese-CLIP | 无标注图文检索 |
+| full annotation | 需要 | 需要 | image/text/BM25 | 对应编码器，可选 Qwen | 正式检索和评测 |
 
-## 3. 必需模型及放置位置
+### 任意图片目录一键运行
 
-项目默认从本地目录读取模型，不会在运行时自动联网下载。
-
-### 3.1 Qwen3-VL-2B-Instruct
-
-默认路径：
+根目录的 `run.py` 和 `scripts/run_all.sh` 对应技术方案要求的隐藏测试集入口。默认 `full` 模式按顺序执行：
 
 ```text
-E:\programs\Anima\Qwen--Qwen3-VL-2B-Instruct\snapshots\master\
+目录扫描 → manifest → M0 场景路由 → M1 场景专用标注
+→ M3 image/text/BM25 索引 → M4–M7 可运行服务
 ```
 
-该目录至少需要：
+先查看执行计划，不加载模型或写产物：
 
-```text
-config.json
-generation_config.json
-preprocessor_config.json
-chat_template.json
-tokenizer.json
-tokenizer_config.json
-model.safetensors
+```bash
+python run.py --input_dir /absolute/path/to/images --dry-run --launch
 ```
 
-当前工作区中的 Qwen 权重已经位于正确位置。
+无正式标注时只构建 Chinese-CLIP 图像索引：
 
-如果模型放在其他位置，修改 `configs/default.yaml`：
-
-```yaml
-models:
-  qwen_vl: D:/models/Qwen3-VL-2B-Instruct
+```bash
+python run.py \
+  --input_dir /absolute/path/to/images \
+  --mode image-only --launch
 ```
 
-### 3.2 Stable Diffusion 1.5
+完整自动标注和三路索引：
 
-默认路径：
-
-```text
-E:\programs\Anima\stablediffusion\
+```bash
+python run.py --input_dir /absolute/path/to/images --mode full --launch
 ```
 
-代码使用 Diffusers 目录格式，需要：
+中断后使用相同参数继续：
 
-```text
-stablediffusion/
-  model_index.json
-  feature_extractor/
-  safety_checker/
-  scheduler/
-  text_encoder/
-  tokenizer/
-  unet/
-  vae/
+```bash
+python run.py --input_dir /absolute/path/to/images --mode full --launch --resume
 ```
 
-根目录中的 `v1-5-pruned-emaonly.ckpt` 和 `v1-5-pruned.ckpt` 不是本项目运行所必需的；代码优先读取上述 Diffusers 组件目录。当前工作区中的 Stable Diffusion 已位于默认位置。
+小规模冒烟可增加 `--limit 5`。默认工作区位于 `artifacts/directory_runs/`，也可以用 `--workspace` 指定隔离目录。程序不会覆盖已有运行状态；必须显式使用 `--resume` 或换一个工作区。
 
-如果模型放在其他位置，修改：
+等价 shell 入口：
 
-```yaml
-models:
-  stable_diffusion: D:/models/stable-diffusion-v1-5
+```bash
+scripts/run_all.sh --input_dir /absolute/path/to/images --mode full --launch
 ```
 
-### 3.3 BGE Small Chinese
+M7 阶段演示录制步骤见 [`docs/M7_RECORDING_GUIDE.md`](docs/M7_RECORDING_GUIDE.md)。
 
-默认路径：
+## 2. 环境：Pixi 或 Conda 二选一
 
-```text
-E:\programs\Anima\models\bge-small-zh-v1.5\
+Pixi 可以理解为“Conda 环境管理 + 锁文件 + 项目任务”。`pixi.toml` 是环境定义，`pixi.lock` 是精确版本锁；只有执行 `pixi install` 后生成 `.pixi/`，才表示本机真正安装了项目环境。
+
+本仓库同时提供：
+
+- `pixi.toml` / `pixi.lock`：同时锁定 Linux 与 Windows，适合已使用 Pixi 的队友。
+- `environment.yml`：适合本机 Linux 或已经熟悉 Conda 的成员。
+
+两者不需要同时安装，选择一种即可。Pixi 配置覆盖 `linux-64` 与 `win-64`；本机已经创建好的 Conda 环境仍可继续使用。
+
+### 2.1 Conda（当前 Linux 机器推荐）
+
+```bash
+conda env create -f environment.yml
+conda activate vlm-course
+python -m pytest -q
 ```
 
-该模型当前需要额外准备。安装环境后，在项目根目录运行：
+环境已经创建过时：
 
-```powershell
-pixi run python -c "from modelscope import snapshot_download; snapshot_download('AI-ModelScope/bge-small-zh-v1.5', local_dir='models/bge-small-zh-v1.5')"
+```bash
+conda env update -n vlm-course -f environment.yml --prune
+conda activate vlm-course
 ```
 
-下载后目录中应包含 `config.json`、Tokenizer 文件和模型权重文件。如果你使用其他中文 Sentence Transformers 模型，将其放在任意本地目录，并修改：
+Windows 的 Anaconda Prompt 使用相同命令；PowerShell 需要先执行一次 `conda init powershell`。
 
-```yaml
-models:
-  embedder: D:/models/your-chinese-embedding-model
-```
-
-## 4. 图片数据放置
-
-默认目录必须是：
-
-```text
-E:\programs\Anima\Train\*.jpg
-E:\programs\Anima\Val\*.jpg
-```
-
-当前数据规模：
-
-- Train：2000 张 JPG，用于伪标注、训练和困难负样本。
-- Val：369 张 JPG，只用于最终检索评测。
-
-不要把 Val 图片加入训练对。代码在 `build_training_pairs()` 中会拒绝 `split != "Train"` 的标注。
-
-## 5. 创建环境（Pixi 或 Mamba 二选一）
-
-不要同时使用 Pixi 和 Mamba 安装同一套依赖。你可以选择下面任意一种环境管理方式；环境创建完成后，后续命令只使用对应的命令前缀。
-
-### 5.1 使用 Mamba（`mamba install` 方案）
-
-Windows 上建议先安装 [Miniforge](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html)。Miniforge 会同时提供 `conda` 和 `mamba`，并默认使用 `conda-forge`。安装完成后，重新打开 **Miniforge Prompt** 或 PowerShell。
-
-确认 Mamba 可用：
-
-```powershell
-mamba --version
-```
-
-创建独立的 Python 3.11 环境：
-
-```powershell
-mamba create -n anima python=3.11 pip -c conda-forge
-mamba activate anima
-```
-
-使用 Mamba 安装能从 conda-forge 获取的基础依赖：
-
-```powershell
-mamba install -n anima -c conda-forge `
-  numpy=1.26 pillow pyyaml pydantic pandas scikit-learn `
-  matplotlib seaborn jieba faiss-cpu pytest
-```
-
-使用 PyTorch 官方 Conda channel 安装 CUDA 版 PyTorch：
-
-```powershell
-mamba install -n anima -c pytorch -c nvidia pytorch torchvision pytorch-cuda=12.4
-```
-
-激活环境后安装需要较新版本或在 Windows 上更容易通过 PyPI 获取的 Python 包：
-
-```powershell
-python -m pip install --upgrade `
-  "transformers>=4.57,<5" "accelerate>=1,<2" "diffusers>=0.35,<1" `
-  "sentence-transformers>=3,<6" "gradio>=5,<7" "rank-bm25>=0.2,<1" modelscope
-```
-
-确认当前命令使用的是 Mamba 环境：
-
-```powershell
-where.exe python
-python --version
-python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
-```
-
-在 Mamba 环境中，后续所有命令都直接使用 `python`：
-
-```powershell
-python scripts\build_manifest.py --config configs\default.yaml
-python scripts\annotate_images.py --config configs\default.yaml --split Train --limit 10
-```
-
-如果某个包在 conda-forge 中无法解析，保留 Mamba 安装的 PyTorch、CUDA、FAISS 和基础科学计算包，再用上面的 `python -m pip install` 补装该包。不要在 `base` 环境中安装项目依赖。
-
-### 5.2 使用 Pixi
-
-打开 PowerShell：
-
-```powershell
-cd E:\programs\Anima
-```
-
-确认 Pixi：
-
-```powershell
-pixi --version
-```
-
-根据 `pixi.toml` 创建 Python 3.11 环境：
+### 2.2 Pixi（Windows 队友）
 
 ```powershell
 pixi install
+pixi run test
 ```
 
-`pixi.toml` 已经从 Python 3.14 改为 Python 3.11。仓库中原有的 Python 3.14 锁文件已移除；首次安装会根据新配置生成 `pixi.lock`。此后提交新的锁文件即可固定环境版本。
-
-如果安装得到的是 CPU 版 PyTorch，可在 Pixi 环境中安装 CUDA 12.8 wheel：
+常用命令：
 
 ```powershell
-pixi run python -m pip install --upgrade torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pixi run python scripts/search_cli.py "雨夜城市" --split val
+pixi run app
+pixi run evaluate
 ```
 
-检查 Python、PyTorch 和 CUDA：
+Pixi 通常不需要 `activate`；`pixi run ...` 会自动在项目环境中执行。
 
-```powershell
-pixi run python --version
-pixi run python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
-```
+## 3. 配置数据和模型路径
 
-本项目所有 Pixi 命令都采用以下形式：
-
-```powershell
-pixi run python scripts\脚本名.py 参数
-```
-
-如果你已经手动激活了兼容环境，也可以把前缀 `pixi run` 去掉，直接运行：
-
-```powershell
-python scripts\脚本名.py 参数
-```
-
-**Mamba 用户请跳过所有 `pixi install` 命令。** 激活 `anima` 环境后，将后文每条命令中的 `pixi run python` 替换为 `python`；例如：
-
-```powershell
-mamba activate anima
-python scripts\build_manifest.py --config configs\default.yaml
-python scripts\build_indexes.py --config configs\default.yaml --split Val
-python scripts\launch_app.py --config configs\default.yaml --split val
-```
-
-## 6. 修改统一配置
-
-所有模型、数据和运行参数位于：
-
-```text
-configs/default.yaml
-```
-
-首次运行前重点检查：
+默认配置在 `configs/default.yaml`：
 
 ```yaml
 data:
-  train_dir: Train
-  val_dir: Val
+  train_dir: ../Train
+  val_dir: ../Val
   artifacts_dir: artifacts
 models:
   qwen_vl: Qwen--Qwen3-VL-2B-Instruct/snapshots/master
   stable_diffusion: stablediffusion
   embedder: models/bge-small-zh-v1.5
-runtime:
-  device: cuda
-  dtype: float16
+  image_embedder: models/chinese-clip-vit-base-patch16
+  jina_clip_v2: models/jina-clip-v2
 ```
 
-RTX 4050 6 GB 建议保持 `float16`、512×512 生成分辨率和 Top-10 视觉重排。
+路径规则：
 
-## 7. 全流程运行
+- 配置中的相对路径始终相对于仓库根目录解析。
+- JSON/JSONL 中保存 POSIX 风格相对路径，例如 `../Train/1.jpg`，不要保存盘符绝对路径。
+- Windows 示例：数据可放在仓库同级的 `Train\` 和 `Val\`，程序仍保存 `/` 分隔形式。
+- Linux 示例：当前仓库若为 `/home/user/nlp_courcedes`，默认数据目录是 `/home/user/Train` 和 `/home/user/Val`。
+- 不要提交原图、模型权重、`.pixi/`、`.venv/` 或本地实验输出。
 
-以下命令均从 `E:\programs\Anima` 执行。
+需要的模型：
 
-### Step 1：生成图片清单
+| 功能 | 模型 | 是否必需 |
+|---|---|---|
+| image 检索 | Chinese-CLIP ViT-B/16 | image-only/full image 分支必需 |
+| A7 图像编码器对照 | jina-clip-v2 | 仅切换 A7 编码器时需要 |
+| text 检索 | BGE small zh | full text 分支必需 |
+| BM25 | 无神经网络模型 | full BM25 分支必需 |
+| M6/M7 问答 | Qwen3-VL 2B | 仅重排、问答和故事需要 |
+| 缺图生成 | Stable Diffusion | 仅生成图片需要 |
 
-```powershell
-pixi run python scripts\build_manifest.py --config configs\default.yaml
+8GB 显存下让 Qwen-VL 与 Stable Diffusion 串行加载，不要同时常驻。
+
+### M4 查询理解后端
+
+retrieval.query_parser_backend 支持三种值：
+
+| 值 | 作用 | 额外条件 |
+|---|---|---|
+| rules | 确定性槽位抽取，默认值 | 无 |
+| local_qwen | 本地 Qwen3-VL 做语义改写和软字段补充 | 本地 Qwen 模型 |
+| openai_compatible | 调用 OpenAI-compatible 免费 API | API Key 环境变量 |
+
+直接验证规则或本地 Qwen：
+
+    python scripts/verify_m4_query_parser.py --backend rules
+    python scripts/verify_m4_query_parser.py --backend local_qwen
+
+免费 API 示例使用 SiliconFlow 兼容接口。不要把 Key 写入 YAML 或 Git：
+
+    export SILICONFLOW_API_KEY=你的密钥
+    python scripts/verify_m4_query_parser.py --backend openai_compatible
+
+若 API 缺 Key、超时、限流或输出不合法，查询会自动回退到规则解析；硬否定、数量、
+时间、天气和 OCR 条件始终由确定性规则保护，避免 LLM 猜测变成错误硬过滤。
+
+## 4. 模式一：mock（立即可运行）
+
+只需要 Train 或 Val 原图：
+
+```bash
+python scripts/launch_mock_app.py --split val --port 7860
 ```
 
-输出：
+也可以显式指定目录：
+
+```bash
+python scripts/launch_mock_app.py --image-dir /absolute/path/to/Val --port 7860
+```
+
+打开 `http://127.0.0.1:7860`。结果顺序是确定性的模拟顺序，只验证 UI 和 `SearchResult` 契约，不代表相关性。
+
+## 5. 模式二：image-only（无需正式标注）
+
+先扫描原图生成 manifest：
+
+```bash
+python scripts/build_manifest.py --config configs/default.yaml
+```
+
+再构建一个 split 的 Chinese-CLIP 图像索引：
+
+```bash
+python scripts/build_image_only_index.py --config configs/default.yaml --split Val
+```
+
+查询时明确只启用 image 分支：
+
+```bash
+python scripts/search_cli.py "至少三辆汽车的雨夜街道" --split val --branches image
+```
+
+该模式生成的最小 annotations 快照会标记为 `image-only-manifest-v1`。它只是服务契约占位数据，不是 M1/M2 正式标注，不能用于 text/BM25 或正式指标。
+
+## 6. 模式三：Qwen3.5 full annotation
+
+默认配置直接使用 M1 canonical v1.3 的 Qwen3.5-9B 主标注：
 
 ```text
-artifacts/manifests/train.jsonl
-artifacts/manifests/val.jsonl
-artifacts/manifests/quality_report.json
+../M1_results_package/annotations/M1_clean_annotations_v1.3/qwen3.5_9b_annotations.jsonl
 ```
 
-先查看 `quality_report.json` 中的 `invalid` 和 `duplicates`。损坏图片不会进入标注；跨 Train/Val 的重复图应从人工评测集排除。
+先扫描图片并导入标注：
 
-### Step 2：比较三种 Prompt
-
-先用 10 张图片检查输出：
-
-```powershell
-pixi run python scripts\compare_prompts.py --split Train --sample-size 10
+```bash
+python scripts/build_manifest.py --config configs/default.yaml
+python scripts/import_m1_qwen35.py --config configs/default.yaml
 ```
 
-正式比较 60 张：
-
-```powershell
-pixi run python scripts\compare_prompts.py --split Train --sample-size 60
-```
-
-输出：
+导入器校验数字 ID、split、相对路径和 `processed_sha256`，输出到：
 
 ```text
-artifacts/evaluation/prompt_outputs.jsonl
+artifacts/annotations/train.qwen35-canonical-v1.3.jsonl
+artifacts/annotations/val.qwen35-canonical-v1.3.jsonl
 ```
 
-每张图片分别产生 `caption_basic`、`caption_structured` 和 `caption_verified` 输出。建议导入表格，由两名成员分别评价事实正确性、完整度、幻觉和可检索性。默认主流程使用 `caption_verified_v1`。
+当前 Qwen3.5 有效覆盖为 2362/2369：Train 1993、Val 369。缺失的 7 个 Train
+ID 会写入 `qwen35_canonical_v1.3_import_report.json`，不会用其他模型结果冒充。
 
-### Step 3：小样本结构化标注
+构建三路索引：
 
-先处理 10 张 Train：
-
-```powershell
-pixi run python scripts\annotate_images.py --config configs\default.yaml --split Train --limit 10
+```bash
+python scripts/build_indexes.py --config configs/default.yaml --split Train --branches image,text,bm25
+python scripts/build_indexes.py --config configs/default.yaml --split Val --branches image,text,bm25
 ```
 
-输出：
+运行检索和 UI：
 
-```text
-artifacts/annotations/train.caption_verified_v1.jsonl
+```bash
+python scripts/search_cli.py "不要人物，寻找冷色调的雨夜城市" --split val
+python scripts/launch_app.py --split val --port 7860
 ```
 
-如果模型输出无效 JSON，程序最多纠错重试两次。最终失败记录在：
+只有显式增加 `--rerank` 或勾选 UI 中的 Qwen3-VL 开关时，才加载视觉重排模型：
 
-```text
-artifacts/annotations/train.caption_verified_v1.failures.jsonl
+```bash
+python scripts/search_cli.py "雨夜城市" --split val --rerank
 ```
 
-脚本支持断点续跑：重新执行时会跳过输出 JSONL 中已经存在的 `image_id`。
+### 6.1 M5 Top-20 交付
 
-### Step 4：全量标注 Train 和 Val
+M3-M5 完成建库后，使用以下命令导出严格的 `m5-to-m6-v1.0` JSONL。该命令只执行
+M4 查询解析和 M5 检索/融合，不加载视觉重排模型：
 
-```powershell
-pixi run python scripts\annotate_images.py --config configs\default.yaml --split Train
-pixi run python scripts\annotate_images.py --config configs\default.yaml --split Val
+```bash
+python scripts/export_m5_candidates.py \
+  --queries configs/m6_benchmark_queries.jsonl \
+  --config configs/default.yaml \
+  --split val \
+  --output artifacts/evaluation/m5_to_m6_candidates.jsonl
 ```
 
-输出：
+每个查询必须得到恰好 20 个候选。导出模式使用全 split 召回深度；若 hybrid 正向
+时间/天气过滤后不足 20，仅把正向描述条件降为软条件重试。否定、必须词、OCR 和精确
+数量条件始终保持硬约束。实际策略写入同目录的
+`m5_retrieval_config.snapshot.json`，其 SHA-256 写入每条交付记录。
 
-```text
-artifacts/annotations/train.caption_verified_v1.jsonl
-artifacts/annotations/val.caption_verified_v1.jsonl
+详细实现与验收见 [`docs/M3_M5_QWEN35_INTEGRATION.md`](docs/M3_M5_QWEN35_INTEGRATION.md)。
+
+## 7. M6 pointwise/listwise 基准
+
+M6 不需要 relevance 标注，但需要可查询的索引、候选原图和 Qwen-VL。原有
+pointwise Top-3/5 基准：
+
+```bash
+python scripts/benchmark_reranker.py "雨夜城市" \
+  --split val --top-k 3 --repeats 3 \
+  --output artifacts/evaluation/reranker_top3.jsonl
 ```
 
-两条命令会运行较长时间。可以随时正常终止，之后执行同一命令继续。
+Top-20 pointwise 与单张 contact sheet listwise 对照：
 
-### Step 5：建立 Train 和 Val 检索索引
-
-确认 BGE 模型已经放入 `models/bge-small-zh-v1.5`，然后运行：
-
-```powershell
-pixi run python scripts\build_indexes.py --config configs\default.yaml --split Train
-pixi run python scripts\build_indexes.py --config configs\default.yaml --split Val
+```bash
+python scripts/benchmark_listwise_top20.py \
+  --config configs/benchmark_8gb.yaml \
+  --top-k 20 --query-limit 3 --repeats 1
 ```
 
-输出：
+输出包括模型调用次数、查询延迟、硬失败率、部分回退率和 CUDA 峰值显存。
+没有人工 relevance judgments 时不评价排序质量提升。RTX 4060 Laptop 8GB 的
+实跑结果和边界见
+[`docs/M6_LISTWISE_TOP20_2026-08-11.md`](docs/M6_LISTWISE_TOP20_2026-08-11.md)。
 
-```text
-artifacts/indexes/train/bm25.pkl
-artifacts/indexes/train/vector/vectors.faiss
-artifacts/indexes/train/vector/metadata.json
-artifacts/indexes/train/annotations.json
-artifacts/indexes/val/bm25.pkl
-artifacts/indexes/val/vector/vectors.faiss
-artifacts/indexes/val/vector/metadata.json
-artifacts/indexes/val/annotations.json
+## 8. 正式评测和 A5 消融
+
+先生成评测种子，再由未参与标注模块的成员人工改写、分类、补充 relevance，并把 `reviewed` 改为 `true`：
+
+```bash
+python scripts/create_eval_set.py --config configs/default.yaml --count 100
 ```
 
-### Step 6：在命令行中搜图
+程序会拒绝未审核、`auto_seed` 或缺少 relevance 的查询。正式评测：
 
-不使用视觉重排，只运行基础混合检索：
-
-```powershell
-pixi run python scripts\search_cli.py "不要人物，寻找冷色调的雨夜城市" --split val
+```bash
+python scripts/evaluate_retrieval.py \
+  --queries artifacts/evaluation/val_queries.jsonl \
+  --relevance artifacts/evaluation/val_relevance.csv
 ```
 
-启用 Qwen3-VL 视觉重排：
+输出总体与 query category 分组的 Recall@K、MRR、mAP、nDCG@10、平均/P50/P95 延迟和失败率，并写出 JSON、CSV、LaTeX 与失败明细。
 
-```powershell
-pixi run python scripts\search_cli.py "不要人物，寻找冷色调的雨夜城市" --split val --rerank
+A5 的五组实验是 CLIP-only、text-only、BM25-only、三路 RRF 和三路归一化加权融合：
+
+```bash
+python scripts/run_ablation.py --dry-run
+python scripts/run_ablation.py \
+  --queries artifacts/evaluation/val_queries.jsonl \
+  --relevance artifacts/evaluation/val_relevance.csv
 ```
 
-返回 JSON 包含图片相对路径、RRF 分数、VLM 分数、匹配证据和不匹配项。
+没有正式 relevance 文件时只能完成代码和 dry-run，不能生成课程报告结论。
 
-### Step 7：构造检索训练数据
+在正式 relevance 尚未完成时，可运行仅比较排名差异与延迟的工程对照：
 
-```powershell
-pixi run python scripts\build_training_pairs.py --config configs\default.yaml
+```bash
+python scripts/compare_fusion_methods.py \
+  --queries configs/m6_benchmark_queries.jsonl \
+  --top-k 8
 ```
 
-输出：
+该命令报告 Top-K 重合率、共同结果平均位次变化和两种融合延迟，不输出或暗示
+Recall、MRR、mAP、nDCG 等质量结论。20 张本地小样的实跑记录见
+[`docs/M5_FUSION_COMPARISON_2026-08-11.md`](docs/M5_FUSION_COMPARISON_2026-08-11.md)。
 
-```text
-artifacts/training/pairs.jsonl
+## 9. A7 Chinese-CLIP / jina-clip-v2 对照
+
+配置 `retrieval.image_encoder_type` 可取 `chinese_clip` 或 `jina_clip_v2`。Jina
+适配器支持 32/64/128/256/512/768/1024 Matryoshka 截断维度，并把编码器类型、
+维度选项和模型指纹写入索引元数据。8GB 配置建议 Jina batch size 1。
+
+本地模型齐全时运行 64 张配对资源测试：
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+python scripts/benchmark_image_encoders.py \
+  --limit 64 --output artifacts/a7_encoder_comparison_64.json
 ```
 
-训练对只从 Train 标注构建。每条记录包含 query、positive、negative、正负图片 ID 和负样本类型。
+该脚本只比较模型大小、建库速度、峰值显存、向量维度、索引大小和热查询延迟。
+没有人工 relevance judgments 时，Top-5 仅用于检查向量有效和检索链路可用，不能据此
+声称任一编码器质量更好。RTX 4060 Laptop 8GB 的实测方法、资源表和限制见
+[`docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md`](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)。
 
-### Step 8：微调 BGE 检索模型
+## 10. 测试与检查
 
-RTX 4050 6 GB 的起始参数：
-
-```powershell
-pixi run python scripts\train_retriever.py --config configs\default.yaml --epochs 3 --batch-size 16
+```bash
+python -m pytest -q
+python -m compileall -q src scripts tests
+git status --short
 ```
 
-如果发生 CUDA OOM，将 batch size 改为 8：
+测试不下载模型，单元测试使用 fake client、临时图片和内存索引。真实 GPU 冒烟与正式实验需要另行准备本地模型和数据。
 
-```powershell
-pixi run python scripts\train_retriever.py --config configs\default.yaml --epochs 3 --batch-size 8
-```
-
-输出：
-
-```text
-artifacts/checkpoints/retriever/
-```
-
-要使用微调后的模型，编辑 `configs/default.yaml`：
-
-```yaml
-models:
-  embedder: artifacts/checkpoints/retriever
-```
-
-然后重新构建 Train/Val 向量索引：
-
-```powershell
-pixi run python scripts\build_indexes.py --config configs\default.yaml --split Train
-pixi run python scripts\build_indexes.py --config configs\default.yaml --split Val
-```
-
-如果微调模型指标没有超过基础 BGE，把 `embedder` 改回 `models/bge-small-zh-v1.5` 并如实记录负实验结果。
-
-### Step 9：建立 Val 评测集初稿
-
-```powershell
-pixi run python scripts\create_eval_set.py --config configs\default.yaml --count 100
-```
-
-输出：
-
-```text
-artifacts/evaluation/val_queries.jsonl
-artifacts/evaluation/val_relevance.csv
-```
-
-脚本用每张 Val 图片的一条生成查询作为初始 query，并把来源图片标为相关度 2。正式报告前必须人工修改：
-
-- 将查询分类为主体、动作、场景、颜色、情绪、OCR、组合条件或否定条件。
-- 人工改写自动生成的查询，避免与伪标注中的 `search_queries` 原文相同。
-- 为每条查询补充其他相关候选图片。
-- relevance 使用 0、1、2：不相关、部分相关、高度相关。
-- 至少两名成员独立标注并处理分歧。
-- 完成人工改写后，把 `val_queries.jsonl` 中每条记录的 `reviewed` 改为 `true`，并将 `category` 从 `auto_seed` 改为真实类别；否则评测脚本会拒绝运行。
-
-### Step 10：运行检索评测
-
-不启用视觉重排：
-
-```powershell
-pixi run python scripts\evaluate_retrieval.py --config configs\default.yaml --queries artifacts\evaluation\val_queries.jsonl --relevance artifacts\evaluation\val_relevance.csv
-```
-
-启用视觉重排：
-
-```powershell
-pixi run python scripts\evaluate_retrieval.py --config configs\default.yaml --queries artifacts\evaluation\val_queries.jsonl --relevance artifacts\evaluation\val_relevance.csv --rerank
-```
-
-输出：
-
-```text
-artifacts/evaluation/retrieval_metrics.json
-artifacts/evaluation/retrieval_details.csv
-```
-
-指标包括 Recall@1/5/10、MRR、mAP、nDCG@10 和平均查询耗时。
-
-### Step 11：生成消融实验矩阵
-
-```powershell
-pixi run python scripts\run_ablation.py --dry-run
-```
-
-写入 CSV：
-
-```powershell
-pixi run python scripts\run_ablation.py
-```
-
-输出：
-
-```text
-artifacts/evaluation/ablation_plan.csv
-```
-
-矩阵覆盖三种 Prompt、BM25/稠密/混合检索、微调前后和视觉重排开关。每种 Prompt 需要使用不同 `prompt_version` 生成标注和索引，避免覆盖实验产物。
-
-### Step 12：启动 Gradio Demo
-
-默认搜索 Val：
-
-```powershell
-pixi run python scripts\launch_app.py --config configs\default.yaml --split val --host 127.0.0.1 --port 7860
-```
-
-浏览器打开：
-
-```text
-http://127.0.0.1:7860
-```
-
-搜索 Train：
-
-```powershell
-pixi run python scripts\launch_app.py --config configs\default.yaml --split train --host 127.0.0.1 --port 7860
-```
-
-需要 Gradio 临时公网链接时显式增加 `--share`：
-
-```powershell
-pixi run python scripts\launch_app.py --config configs\default.yaml --split val --share
-```
-
-Demo 包含：
-
-- 智能搜索和 Qwen 视觉重排开关；
-- 结构化标注与图片问答；
-- 标题、朋友圈文案和微型故事；
-- Stable Diffusion 补图；
-- 当前模型和 Prompt 版本展示。
-
-## 8. Stable Diffusion 补图参数
-
-默认配置：
-
-```yaml
-generation:
-  width: 512
-  height: 512
-  steps: 30
-  guidance_scale: 7.5
-  seed: 20260802
-```
-
-生成结果位于：
-
-```text
-artifacts/generated/generated-<seed>.png
-artifacts/generated/generated-<seed>.json
-```
-
-同名 JSON 保存正向 Prompt、负向 Prompt、seed、尺寸、步数、guidance scale 和模型路径。生成结果的来源固定为 `generated`，默认不进入真实图片索引。
-
-## 9. 测试命令
-
-运行全部测试：
-
-```powershell
-pixi run python -m pytest -q
-```
-
-只运行轻量单元测试：
-
-```powershell
-pixi run python -m pytest tests\unit -q
-```
-
-只检查服务接口：
-
-```powershell
-pixi run python -m pytest tests\integration\test_service_contract.py -q
-```
-
-测试文件不会自动运行 Qwen、Stable Diffusion、全量标注或训练任务。
-
-## 10. 产物目录
-
-```text
-artifacts/
-  manifests/       图片清单和质量报告
-  annotations/     Qwen 结构化伪标注
-  indexes/         BM25、FAISS 和标注快照
-  training/        训练对
-  checkpoints/     微调后的检索模型
-  evaluation/      查询、相关度、指标和消融结果
-  generated/       Stable Diffusion 图片及生成参数
-```
-
-模型权重、批量标注、索引和生成图片已加入 `.gitignore`。报告中需要的最终指标 JSON、CSV 和图表可按课程提交要求单独整理。
-
-## 11. 常见问题
-
-### `pixi run python` 无法启动
-
-原 `.pixi` 环境可能来自 Python 3.14。重新运行：
-
-```powershell
-pixi install
-```
-
-如果仍然失败，确认没有其他进程占用 `.pixi`，再由 Pixi 重建环境。不要手动把系统 Python 3.14 填入该环境。
-
-### `Qwen3VLForConditionalGeneration` 无法导入
-
-Qwen3-VL 需要较新的 Transformers。确认：
-
-```powershell
-pixi run python -c "import transformers; print(transformers.__version__)"
-```
-
-项目要求 `transformers>=4.57,<5`。
-
-### CUDA OOM
-
-- 保持 Qwen 和 SD 的互斥模型管理，不要在另一个 Python 进程中同时加载它们。
-- 将检索训练 batch size 从 16 降到 8 或 4。
-- 保持 SD 分辨率 512×512。
-- 将 `retrieval.rerank_count` 从 10 改为 5。
-- 结束其他占用 GPU 的程序后再启动 Demo。
-
-### 找不到 BGE 模型
-
-检查目录：
-
-```powershell
-Get-ChildItem models\bge-small-zh-v1.5
-```
-
-然后确认 `configs/default.yaml` 的 `models.embedder` 与实际路径一致。
-
-### 标注输出大量失败
-
-查看：
-
-```text
-artifacts/annotations/train.caption_verified_v1.failures.jsonl
-artifacts/annotations/val.caption_verified_v1.failures.jsonl
-```
-
-优先检查显存、图片是否损坏、Qwen 模型文件是否齐全，以及 Transformers 是否支持 Qwen3-VL。修正问题后重新执行相同标注命令，已成功图片会被跳过。
-
-### 搜索结果为空
-
-确认已经对对应 split 建立索引：
-
-```text
-artifacts/indexes/train/
-artifacts/indexes/val/
-```
-
-如果查询包含过多否定词，结构化过滤可能排除全部候选；先用不带否定条件的查询检查基础索引。
-
-## 12. 建议实验表格
-
-论文至少报告：
-
-| 实验 | Prompt | 检索器 | 训练 | VLM 重排 |
-|---|---|---|---|---|
-| Baseline 1 | 普通描述 | BM25 | 否 | 否 |
-| Baseline 2 | 结构化描述 | BGE | 否 | 否 |
-| Proposed A | 两阶段描述 | BM25+BGE+RRF | 否 | 否 |
-| Proposed B | 两阶段描述 | BM25+微调 BGE+RRF | 是 | 否 |
-| Full | 两阶段描述 | BM25+微调 BGE+RRF | 是 | 是 |
-
-同时报告 Prompt 的 JSON 有效率、事实正确性、完整度和幻觉率；生成部分报告图文一致性、视觉质量、风格符合度和人工偏好。
-
-## 13. 推荐首次运行顺序
-
-首次不要直接运行全量任务，按以下顺序排错：
-
-```powershell
-cd E:\programs\Anima
-pixi install
-pixi run python scripts\build_manifest.py
-pixi run python scripts\compare_prompts.py --sample-size 10
-pixi run python scripts\annotate_images.py --split Train --limit 10
-```
-
-确认 10 张图片的 JSON 正常后，再执行：
-
-```powershell
-pixi run python scripts\annotate_images.py --split Train
-pixi run python scripts\annotate_images.py --split Val
-pixi run python scripts\build_indexes.py --split Train
-pixi run python scripts\build_indexes.py --split Val
-pixi run python scripts\build_training_pairs.py
-pixi run python scripts\train_retriever.py --epochs 3 --batch-size 16
-pixi run python scripts\create_eval_set.py --count 100
-pixi run python scripts\evaluate_retrieval.py
-pixi run python scripts\launch_app.py --split val
-```
-
-完整设计、阶段门禁、风险和课程交付建议见 [plan.md](plan.md)。
+无标注阶段的 1–8 实施状态见 `LOCAL_NO_ANNOTATION_PLAN.md`。

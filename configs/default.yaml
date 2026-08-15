@@ -1,32 +1,70 @@
 project_root: .
 data:
-  train_dir: Train
-  val_dir: Val
+  train_dir: ../Train
+  val_dir: ../Val
   artifacts_dir: artifacts
 models:
   qwen_vl: Qwen--Qwen3-VL-2B-Instruct/snapshots/master
   stable_diffusion: stablediffusion
   embedder: models/bge-small-zh-v1.5
+  image_embedder: models/chinese-clip-vit-base-patch16
+  jina_clip_v2: models/jina-clip-v2
 annotation:
-  prompt: configs/prompts/caption_verified.txt
-  prompt_version: caption_verified_v1
-  max_new_tokens: 1024
+  source: ../M1_results_package/annotations/M1_clean_annotations_v1.3/qwen3.5_9b_annotations.jsonl
+  prompt: configs/prompts/caption_verified_v4.txt
+  prompt_version: qwen35-canonical-v1.3
+  allow_missing: true
+  max_new_tokens: 768
   temperature: 0.1
   retries: 2
 retrieval:
+  enabled_branches: [image, text, bm25]
   candidate_count: 50
   rerank_count: 10
   result_count: 8
   rrf_k: 60
+  fusion_method: rrf
+  fusion_weights:
+    image: 0.4
+    text: 0.4
+    bm25: 0.2
   rrf_weight: 0.35
   vlm_weight: 0.65
+  text_batch_size: 32
+  image_batch_size: 8
+  image_encoder_type: chinese_clip
+  jina_clip_truncate_dim: 512
+  jina_clip_local_files_only: true
+  jina_clip_image_batch_size: 1
+  aliases: configs/retrieval_aliases.yaml
+  query_parser_use_llm: false
+  query_parser_backend: rules
+  query_parser_api:
+    base_url: https://api.siliconflow.cn/v1
+    model: Qwen/Qwen2.5-7B-Instruct
+    api_key_env: SILICONFLOW_API_KEY
+    timeout_seconds: 30
+    max_retries: 2
+  rerank_method: pointwise
+  rerank_default: false
+  rerank_max_new_tokens: 128
+  rerank_listwise_prompt: configs/prompts/reranker_listwise.txt
+  rerank_listwise_max_new_tokens: 768
+  rerank_listwise_columns: 5
+  rerank_listwise_tile_size: 192
 generation:
   width: 512
   height: 512
   steps: 30
   guidance_scale: 7.5
   seed: 20260802
+m7:
+  max_new_tokens: 384
+  max_story_gaps: 2
+  gap_scene_similarity_threshold: 0.15
+  fill_gaps_default: false
 runtime:
   device: cuda
   dtype: float16
+  max_image_pixels: 1048576
 seed: 20260802

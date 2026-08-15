@@ -21,7 +21,8 @@ def main() -> None:
     manifest = artifacts / "manifests" / f"{split}.jsonl"
     items = [ManifestItem.model_validate_json(line) for line in manifest.read_text(encoding="utf-8").splitlines() if line][:args.sample_size]
     client = QwenVLClient(resolve_path(config, config["models"]["qwen_vl"]),
-        config["runtime"]["dtype"], config["runtime"]["device"])
+        config["runtime"]["dtype"], config["runtime"]["device"],
+        config["runtime"]["max_image_pixels"])
     output = artifacts / "evaluation" / "prompt_outputs.jsonl"; output.parent.mkdir(parents=True, exist_ok=True)
     prompt_dir = Path(config["project_root"]) / "configs" / "prompts"
     with output.open("w", encoding="utf-8") as handle:
