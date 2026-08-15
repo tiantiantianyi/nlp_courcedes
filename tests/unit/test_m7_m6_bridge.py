@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any, Callable
 
 import pytest
 
@@ -92,4 +94,71 @@ def test_load_rejects_duplicate_query_id(tmp_path: Path) -> None:
     path.write_text(payload + "\n" + payload + "\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="duplicate"):
+        load_m6_query(path, "q001")
+
+
+def _duplicate_image_id(payload: dict[str, Any]) -> None:
+    payload["candidates"][1]["image_id"] = payload["candidates"][0]["image_id"]
+
+
+def _break_rerank_sequence(payload: dict[str, Any]) -> None:
+    payload["candidates"][1]["rerank_rank"] = 1
+
+
+def _duplicate_source_rank(payload: dict[str, Any]) -> None:
+    payload["candidates"][1]["rank"] = payload["candidates"][0]["rank"]
+
+
+def _add_unknown_branch(payload: dict[str, Any]) -> None:
+    payload["candidates"][0]["branch_scores"]["audio"] = 0.1
+    payload["candidates"][0]["branch_ranks"]["audio"] = 1
+
+
+def _mismatch_branch_keys(payload: dict[str, Any]) -> None:
+    payload["candidates"][0]["branch_ranks"] = {}
+
+
+def _set_nonpositive_branch_rank(payload: dict[str, Any]) -> None:
+    payload["candidates"][0]["branch_ranks"]["image"] = 0
+
+
+def _break_manifest_hash(payload: dict[str, Any]) -> None:
+    payload["index_manifest_sha256"] = "not-a-sha256"
+
+
+def _break_degraded_mismatch_consistency(payload: dict[str, Any]) -> None:
+    payload["degraded"] = False
+    payload["mismatch"] = ["reranker failed"]
+
+
+def _hide_candidate_mismatch(payload: dict[str, Any]) -> None:
+    payload["degraded"] = True
+    payload["mismatch"] = ["global warning"]
+    payload["candidates"][0]["mismatch"] = ["candidate warning"]
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        _duplicate_image_id,
+        _break_rerank_sequence,
+        _duplicate_source_rank,
+        _add_unknown_branch,
+        _mismatch_branch_keys,
+        _set_nonpositive_branch_rank,
+        _break_manifest_hash,
+        _break_degraded_mismatch_consistency,
+        _hide_candidate_mismatch,
+    ],
+)
+def test_load_rejects_external_jsonl_with_broken_output_invariants(
+    tmp_path: Path,
+    mutate: Callable[[dict[str, Any]], None],
+) -> None:
+    payload = _result().model_dump(mode="json")
+    mutate(payload)
+    path = tmp_path / "corrupt-m6.jsonl"
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="invalid M6 result"):
         load_m6_query(path, "q001")
