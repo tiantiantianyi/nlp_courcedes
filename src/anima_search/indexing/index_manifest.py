@@ -23,7 +23,8 @@ def image_ids_digest(image_ids: list[str]) -> str:
 
 def write_index_manifest(path: Path, *, split: str, image_ids: list[str], annotation_path: Path,
                          annotation_version: str, branches: dict[str, dict[str, Any]],
-                         config_digest: str = "") -> dict[str, Any]:
+                         config_digest: str = "",
+                         image_records: list[dict[str, str]] | None = None) -> dict[str, Any]:
     payload = {
         "schema_version": INDEX_SCHEMA_VERSION,
         "split": split,
@@ -36,6 +37,8 @@ def write_index_manifest(path: Path, *, split: str, image_ids: list[str], annota
         "branches": branches,
         "config_digest": config_digest,
     }
+    if image_records is not None:
+        payload["image_records"] = image_records
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
@@ -57,6 +60,13 @@ def validate_index_manifest(payload: dict[str, Any], image_ids: list[str],
         raise ValueError("index manifest record_count does not match annotations")
     if payload.get("image_ids_sha256") != image_ids_digest(image_ids):
         raise ValueError("index manifest image IDs do not match annotations")
+    image_records = payload.get("image_records")
+    if image_records is not None:
+        record_ids = [str(item.get("image_id", "")) for item in image_records]
+        if record_ids != image_ids:
+            raise ValueError("index manifest image records do not match annotations")
+        if any(not str(item.get("relative_path", "")).strip() for item in image_records):
+            raise ValueError("index manifest image record is missing relative_path")
     expected = set(payload.get("active_branches", []))
     if not set(branch_image_ids).issubset(expected):
         raise ValueError("loaded index contains branches not declared by the index manifest")

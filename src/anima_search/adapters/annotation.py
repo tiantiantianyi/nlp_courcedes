@@ -6,6 +6,77 @@ from typing import Any
 from anima_search.schemas import ImageAnnotation, ManifestItem
 
 
+CANONICAL_QWEN35_VERSION = "qwen35-canonical-v1.3"
+
+_RELATION_ZH = {
+    "left_of": "位于左侧",
+    "right_of": "位于右侧",
+    "above": "位于上方",
+    "below": "位于下方",
+    "in_front_of": "位于前方",
+    "behind": "位于后方",
+    "inside": "位于内部",
+    "on": "位于上面",
+    "under": "位于下面",
+    "next_to": "邻近",
+    "overlapping": "重叠",
+    "holding": "拿着",
+    "wearing": "穿戴",
+    "riding": "骑乘",
+    "looking_at": "看向",
+    "eating": "正在吃",
+}
+
+_ENUM_ZH = {
+    "primary_type": {
+        "general": "一般场景",
+        "indoor": "室内",
+        "street_urban": "城市街道",
+        "nature": "自然风景",
+        "people_activity": "人物活动",
+        "food": "美食",
+        "transport": "交通出行",
+        "animal_plant": "动植物",
+        "object_exhibit": "物品展陈",
+        "illustration_meme": "插画表情包",
+        "document_screen": "文档屏幕",
+    },
+    "environment": {"indoor": "室内", "outdoor": "室外", "mixed": "室内外混合"},
+    "time_of_day": {"day": "白天", "dawn_dusk": "黄昏", "night": "夜晚"},
+    "weather": {
+        "clear": "晴天",
+        "cloudy": "阴天",
+        "rain": "雨天",
+        "snow": "雪天",
+        "fog": "雾天",
+    },
+    "media_type": {
+        "natural_image": "自然图像",
+        "illustration": "插画",
+        "screenshot": "屏幕截图",
+        "document_scan": "文档扫描",
+        "mixed": "混合媒介",
+    },
+}
+
+_COLOR_ZH = {
+    "red": "红色",
+    "orange": "橙色",
+    "yellow": "黄色",
+    "green": "绿色",
+    "blue": "蓝色",
+    "purple": "紫色",
+    "pink": "粉色",
+    "brown": "棕色",
+    "black": "黑色",
+    "white": "白色",
+    "gray": "灰色",
+    "grey": "灰色",
+    "silver": "银色",
+    "gold": "金色",
+}
+
+
 def _strings(value: object) -> list[str]:
     if value is None or value == "":
         return []
@@ -22,6 +93,11 @@ def _strings(value: object) -> list[str]:
 
 def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
+
+
+def _localized_enum(field: str, value: object) -> str:
+    text = str(value or "").strip()
+    return _ENUM_ZH.get(field, {}).get(text, text)
 
 
 def _object_fields(value: object) -> tuple[list[str], dict[str, int], list[str]]:
@@ -54,9 +130,164 @@ def _query_seeds(summary: str, scene: str, keywords: list[str]) -> list[str]:
     return result[:3]
 
 
+def _canonical_qwen35_annotation(
+    payload: Mapping[str, Any], manifest: ManifestItem | None
+) -> ImageAnnotation:
+    if manifest is None:
+        raise ValueError("canonical v1.3 annotation requires a manifest item")
+    raw_id = str(payload.get("image_id", "")).strip()
+    if raw_id not in {manifest.image_id, manifest.image_id.rsplit("-", 1)[-1]}:
+        raise ValueError(
+            f"annotation image_id {raw_id!r} does not match manifest {manifest.image_id!r}"
+        )
+    processed_sha256 = str(payload.get("processed_sha256", "")).strip()
+    if processed_sha256 and processed_sha256 != manifest.sha256:
+        raise ValueError(
+            f"processed_sha256 mismatch for {manifest.image_id}: "
+            f"{processed_sha256} != {manifest.sha256}"
+        )
+
+    annotation = _mapping(payload.get("annotation"))
+    scene_data = _mapping(annotation.get("scene"))
+    capture = _mapping(annotation.get("capture_visual"))
+    subjective = _mapping(annotation.get("subjective"))
+    captions = _mapping(annotation.get("captions"))
+    event = _mapping(annotation.get("event"))
+    entities = [
+        _mapping(item)
+        for item in annotation.get("entities", [])
+        if isinstance(item, Mapping)
+    ]
+    entity_by_id = {
+        str(item.get("entity_id", "")): str(item.get("name_zh", "")).strip()
+        for item in entities
+    }
+
+    objects: list[str] = []
+    object_counts: dict[str, int] = {}
+    actions: list[str] = []
+    attributes: list[str] = []
+    colors: list[str] = []
+    for entity in entities:
+        name = str(entity.get("name_zh", "")).strip()
+        if not name:
+            continue
+        objects.append(name)
+        count = entity.get("count")
+        if entity.get("count_exact") is True and isinstance(count, int) and count >= 0:
+            object_counts[name] = object_counts.get(name, 0) + count
+        for key in ("entity_type", "position_zone", "salience", "visibility"):
+            value = entity.get(key)
+            if value not in (None, ""):
+                attributes.append(f"{key}:{name}={value}")
+        entity_attributes = _mapping(entity.get("attributes"))
+        colors.extend(
+            _COLOR_ZH.get(value.casefold(), value)
+            for value in _strings(entity_attributes.get("colors_zh"))
+        )
+        for key in ("materials_zh", "states_zh", "attire_zh"):
+            attributes.extend(
+                f"{key}:{name}={value}"
+                for value in _strings(entity_attributes.get(key))
+            )
+        action = str(entity_attributes.get("action_zh") or "").strip()
+        if action:
+            actions.append(f"{name}{action}")
+
+    for key, value in capture.items():
+        if value not in (None, ""):
+            localized = _localized_enum(key, value)
+            attributes.append(f"{key}:{localized}")
+            if localized != str(value):
+                attributes.append(f"{key}_code:{value}")
+    for key in ("primary_type", "environment", "media_type"):
+        value = scene_data.get(key)
+        if value not in (None, ""):
+            attributes.append(f"scene_{key}:{value}")
+    attributes.extend(
+        f"scene_secondary:{value}"
+        for value in _strings(scene_data.get("secondary_types"))
+    )
+
+    relations: list[str] = []
+    for relation in annotation.get("relations", []):
+        data = _mapping(relation)
+        subject = entity_by_id.get(str(data.get("subject_id", "")), "未知实体")
+        target = entity_by_id.get(str(data.get("object_id", "")), "未知实体")
+        predicate = str(data.get("predicate", "")).strip()
+        relation_text = str(data.get("predicate_other_zh") or "").strip()
+        relations.append(f"{subject}{relation_text or _RELATION_ZH.get(predicate, predicate)}{target}")
+
+    event_summary = str(event.get("summary_zh") or "").strip()
+    if event_summary:
+        actions.append(event_summary)
+    summary = str(captions.get("dense_zh") or captions.get("short_zh") or "").strip()
+    if not summary:
+        raise ValueError("canonical v1.3 annotation must provide captions.dense_zh or short_zh")
+    secondary_types = _strings(scene_data.get("secondary_types"))
+    scene_terms = _strings(
+        [
+            scene_data.get("sub_type_zh"),
+            _localized_enum("primary_type", scene_data.get("primary_type")),
+            *(_localized_enum("primary_type", value) for value in secondary_types),
+            _localized_enum("environment", scene_data.get("environment")),
+        ]
+    )
+    scene = " ".join(scene_terms) or "未知场景"
+    ocr_text = [
+        str(_mapping(item).get("text_raw", "")).strip()
+        for item in annotation.get("ocr", [])
+        if str(_mapping(item).get("text_raw", "")).strip()
+    ]
+    uncertainty = []
+    for item in annotation.get("uncertainties", []):
+        data = _mapping(item)
+        uncertainty.append(
+            " | ".join(
+                value
+                for value in (
+                    str(data.get("field_path", "")).strip(),
+                    str(data.get("reason", "")).strip(),
+                    str(data.get("note_zh", "")).strip(),
+                )
+                if value
+            )
+        )
+
+    mood = _strings(subjective.get("mood_terms_zh"))
+    colors = _strings([*colors, *(_strings(subjective.get("palette_terms_zh")))])
+    keywords = _strings([*objects, *scene_terms, *mood, *colors, *ocr_text])
+    media_type = _localized_enum("media_type", scene_data.get("media_type"))
+    return ImageAnnotation(
+        image_id=manifest.image_id,
+        split=manifest.split,
+        relative_path=manifest.relative_path.replace("\\", "/"),
+        sha256=manifest.sha256,
+        duplicate_of=manifest.duplicate_of,
+        summary=summary,
+        objects=_strings(objects),
+        object_counts=object_counts,
+        actions=_strings(actions),
+        scene=scene,
+        attributes=_strings(attributes),
+        spatial_relations=_strings(relations),
+        style=_strings(media_type),
+        mood=mood,
+        colors=colors,
+        ocr_text=_strings(ocr_text),
+        search_queries=_query_seeds(summary, scene, keywords),
+        generation_prompt=summary,
+        uncertainty=_strings(uncertainty),
+        model_version=str(payload.get("source_model_id") or "Qwen/Qwen3.5-9B"),
+        prompt_version=CANONICAL_QWEN35_VERSION,
+    )
+
+
 def adapt_annotation(payload: Mapping[str, Any], manifest: ManifestItem | None = None,
                      *, default_split: str = "Val") -> ImageAnnotation:
     """Convert the proposal's nested schema or the existing flat schema to ImageAnnotation."""
+    if isinstance(payload.get("annotation"), Mapping):
+        return _canonical_qwen35_annotation(payload, manifest)
     if "summary" in payload and isinstance(payload.get("objects", []), list) and not any(
         isinstance(item, Mapping) for item in payload.get("objects", [])
     ):

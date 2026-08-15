@@ -52,7 +52,8 @@ def validate_annotations(config: dict, split: str) -> int:
             or by_id[image_id].prompt_version != config["annotation"]["prompt_version"]
         )
     )
-    if missing or extra or mismatched:
+    allow_missing = bool(config.get("annotation", {}).get("allow_missing", False))
+    if (missing and not allow_missing) or extra or mismatched:
         raise ValueError(
             f"{split} annotation validation failed: "
             f"missing={missing[:10]}, extra={extra[:10]}, mismatched={mismatched[:10]}"
@@ -133,21 +134,36 @@ def main() -> None:
             )
 
         counts: dict[str, int] = {}
-        for split in ("Train", "Val"):
-            stage = f"annotate_{split.lower()}"
+        annotation_source = config.get("annotation", {}).get("source")
+        if annotation_source:
             _run_stage(
                 state,
-                stage,
+                "import_qwen35_annotations",
                 [
                     python,
-                    "scripts/annotate_images.py",
+                    "scripts/import_m1_qwen35.py",
                     "--config",
                     config_arg,
-                    "--split",
-                    split,
                 ],
                 root,
             )
+        else:
+            for split in ("Train", "Val"):
+                _run_stage(
+                    state,
+                    f"annotate_{split.lower()}",
+                    [
+                        python,
+                        "scripts/annotate_images.py",
+                        "--config",
+                        config_arg,
+                        "--split",
+                        split,
+                    ],
+                    root,
+                )
+
+        for split in ("Train", "Val"):
             count = validate_annotations(config, split)
             counts[split.lower()] = count
             state.update(f"validate_{split.lower()}", "completed", record_count=count)
