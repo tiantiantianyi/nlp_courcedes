@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from anima_search.indexing.index_manifest import image_ids_digest, sha256_file
@@ -136,3 +137,32 @@ def test_cli_writes_complete_invalid_report_and_returns_one(
     assert {issue["code"] for issue in report["issues"]} == {
         "E_CANDIDATE_COUNT"
     }
+
+
+@pytest.mark.parametrize("protected_key", ["input", "manifest"])
+def test_cli_refuses_report_aliasing_read_only_input(
+    tmp_path: Path,
+    protected_key: str,
+) -> None:
+    paths = _delivery(tmp_path)
+    protected = paths[protected_key]
+    original = protected.read_bytes()
+
+    completed = _run(paths, protected)
+
+    assert completed.returncode != 0
+    assert "output path alias" in completed.stderr
+    assert protected.read_bytes() == original
+
+
+def test_cli_refuses_report_symlink_aliasing_input(tmp_path: Path) -> None:
+    paths = _delivery(tmp_path)
+    original = paths["input"].read_bytes()
+    report_path = tmp_path / "report-link.json"
+    report_path.symlink_to(paths["input"])
+
+    completed = _run(paths, report_path)
+
+    assert completed.returncode != 0
+    assert "output path alias" in completed.stderr
+    assert paths["input"].read_bytes() == original

@@ -94,8 +94,45 @@ def test_cli_refuses_to_overwrite_m5_input(
     paths = _paths(tmp_path)
     paths["output"] = paths["input"]
 
-    with pytest.raises(ValueError, match="must differ from input"):
+    with pytest.raises(ValueError, match="output path alias"):
         main(_argv(paths))
+
+
+@pytest.mark.parametrize("protected_key", ["input", "config", "manifest"])
+def test_cli_refuses_output_aliasing_any_read_only_input(
+    tmp_path: Path,
+    protected_key: str,
+) -> None:
+    paths = _paths(tmp_path)
+    protected = paths[protected_key]
+    if not protected.exists():
+        protected.write_text('{"protected": true}\n', encoding="utf-8")
+    original = protected.read_bytes()
+    paths["output"] = protected
+
+    with pytest.raises(ValueError, match="output path alias"):
+        main(_argv(paths))
+
+    assert protected.read_bytes() == original
+
+
+def test_cli_refuses_outputs_aliasing_each_other(tmp_path: Path) -> None:
+    paths = _paths(tmp_path)
+    paths["report"] = paths["output"]
+
+    with pytest.raises(ValueError, match="output path alias"):
+        main(_argv(paths))
+
+
+def test_cli_refuses_output_symlink_aliasing_config(tmp_path: Path) -> None:
+    paths = _paths(tmp_path)
+    original = paths["config"].read_bytes()
+    paths["output"].symlink_to(paths["config"])
+
+    with pytest.raises(ValueError, match="output path alias"):
+        main(_argv(paths))
+
+    assert paths["config"].read_bytes() == original
 
 
 def test_dry_run_writes_auditable_degraded_result_without_model(

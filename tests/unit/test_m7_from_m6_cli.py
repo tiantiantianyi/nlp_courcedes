@@ -207,5 +207,48 @@ def test_cli_refuses_to_overwrite_m6_results(tmp_path: Path) -> None:
     paths = _files(tmp_path)
     paths["output"] = paths["m6"]
 
-    with pytest.raises(ValueError, match="must differ"):
+    with pytest.raises(ValueError, match="output path alias"):
         main(_argv(paths))
+
+
+@pytest.mark.parametrize(
+    "protected_key",
+    ["m6", "annotations", "train_manifest", "val_manifest"],
+)
+def test_cli_refuses_output_aliasing_any_read_only_input(
+    tmp_path: Path,
+    protected_key: str,
+) -> None:
+    paths = _files(tmp_path)
+    protected = paths[protected_key]
+    original = protected.read_bytes()
+    paths["output"] = protected
+
+    with pytest.raises(ValueError, match="output path alias"):
+        main(_argv(paths))
+
+    assert protected.read_bytes() == original
+
+
+def test_cli_refuses_output_aliasing_config(tmp_path: Path) -> None:
+    paths = _files(tmp_path)
+    paths["output"] = PROJECT_ROOT / "configs" / "benchmark_8gb.yaml"
+    original = paths["output"].read_bytes()
+
+    with pytest.raises(ValueError, match="output path alias"):
+        main(_argv(paths))
+
+    assert paths["output"].read_bytes() == original
+
+
+def test_cli_refuses_output_symlink_aliasing_annotations(
+    tmp_path: Path,
+) -> None:
+    paths = _files(tmp_path)
+    original = paths["annotations"].read_bytes()
+    paths["output"].symlink_to(paths["annotations"])
+
+    with pytest.raises(ValueError, match="output path alias"):
+        main(_argv(paths))
+
+    assert paths["annotations"].read_bytes() == original

@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from anima_search.m6.interface_validation import validate_interface_file
+from anima_search.m6.path_safety import reject_output_path_aliases
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -25,6 +26,16 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    reject_output_path_aliases(
+        read_only={
+            "input": args.input,
+            "project_root": args.project_root,
+            "train_dir": args.train_dir,
+            "val_dir": args.val_dir,
+            "index_manifest": args.index_manifest,
+        },
+        outputs={"report": args.report},
+    )
     _, report = validate_interface_file(
         input_path=args.input,
         project_root=args.project_root,

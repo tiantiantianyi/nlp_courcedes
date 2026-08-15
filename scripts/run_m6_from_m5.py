@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from anima_search.annotation.qwen_client import QwenVLClient
 from anima_search.config import load_config, resolve_path
 from anima_search.m6.interface_validation import validate_interface_file
+from anima_search.m6.path_safety import reject_output_path_aliases
 from anima_search.m6.runner import rerank_query_batch
 from anima_search.retrieval.listwise_reranker import ListwiseVisualReranker
 from anima_search.retrieval.reranker import VisualReranker
@@ -114,8 +115,19 @@ def _real_reranker(
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    if args.input.resolve() == args.output.resolve():
-        raise ValueError("M6 output must differ from input")
+    reject_output_path_aliases(
+        read_only={
+            "input": args.input,
+            "config": args.config,
+            "index_manifest": args.index_manifest,
+            "train_dir": args.train_dir,
+            "val_dir": args.val_dir,
+        },
+        outputs={
+            "output": args.output,
+            "validation_report": args.validation_report,
+        },
+    )
     if args.query_limit is not None and args.query_limit <= 0:
         raise ValueError("--query-limit must be positive")
 

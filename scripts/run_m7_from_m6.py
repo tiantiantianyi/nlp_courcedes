@@ -12,6 +12,7 @@ from anima_search.annotation.qwen_client import QwenVLClient
 from anima_search.app.service import SearchService
 from anima_search.config import load_config, resolve_path
 from anima_search.generation.sd_generator import StableDiffusionGenerator
+from anima_search.m6.path_safety import reject_output_path_aliases
 from anima_search.m7.canonical_annotations import (
     load_canonical_m7_annotations,
 )
@@ -79,8 +80,16 @@ def _build_service(
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    if args.output.resolve() == args.m6_results.resolve():
-        raise ValueError("M7 output must differ from M6 results")
+    reject_output_path_aliases(
+        read_only={
+            "m6_results": args.m6_results,
+            "annotations": args.annotations,
+            "train_manifest": args.train_manifest,
+            "val_manifest": args.val_manifest,
+            "config": args.config,
+        },
+        outputs={"output": args.output},
+    )
 
     m6_result = load_m6_query(args.m6_results, args.query_id)
     candidates = select_story_candidates(m6_result, args.select_count)
