@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from anima_search.indexing.index_manifest import (
@@ -257,3 +258,49 @@ def test_validator_loads_declared_jsonl_annotation_artifact(
     assert annotation_path.name == "val.jsonl"
     assert report.valid
     assert len(batches) == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected_code"),
+    [
+        ("rank", 0, "E_RANK_SEQUENCE"),
+        ("fused_score", "not-a-number", "E_NONFINITE_SCORE"),
+    ],
+)
+def test_validator_uses_stable_candidate_error_codes(
+    tmp_path: Path,
+    field: str,
+    value: object,
+    expected_code: str,
+) -> None:
+    payload = _batch()
+    payload["candidates"][0][field] = value  # type: ignore[index]
+    paths = _fixture_paths(tmp_path, payloads=[payload])
+    paths.pop("annotation_path")
+
+    _, report = validate_interface_file(**paths)
+
+    assert expected_code in {issue.code for issue in report.issues}
+
+
+@pytest.mark.parametrize(
+    ("branch_field", "value", "expected_code"),
+    [
+        ("branch_scores", "not-a-number", "E_NONFINITE_SCORE"),
+        ("branch_ranks", 0, "E_BRANCH_KEYS"),
+    ],
+)
+def test_validator_uses_stable_branch_value_error_codes(
+    tmp_path: Path,
+    branch_field: str,
+    value: object,
+    expected_code: str,
+) -> None:
+    payload = _batch()
+    payload["candidates"][0][branch_field]["image"] = value  # type: ignore[index]
+    paths = _fixture_paths(tmp_path, payloads=[payload])
+    paths.pop("annotation_path")
+
+    _, report = validate_interface_file(**paths)
+
+    assert expected_code in {issue.code for issue in report.issues}

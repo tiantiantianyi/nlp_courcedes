@@ -54,15 +54,23 @@ def _validation_code(error: dict[str, Any]) -> str:
         "list_type",
     }:
         return "E_CANDIDATE_COUNT"
+    if (
+        ("branch_scores" in location or "branch_ranks" in location)
+        and error_type == "literal_error"
+    ):
+        return "E_BRANCH_NAME"
+    if "candidates" in location and location[-1:] == ("rank",):
+        return "E_RANK_SEQUENCE"
+    if "fused_score" in location or "branch_scores" in location:
+        return "E_NONFINITE_SCORE"
+    if "branch_ranks" in location or "branch ranks must be positive" in message:
+        return "E_BRANCH_KEYS"
     if "branch keys" in message:
         return "E_BRANCH_KEYS"
     if "ordered sequence" in message:
         return "E_RANK_SEQUENCE"
     if "must be unique" in message:
         return "E_DUPLICATE_IMAGE_ID"
-    if "branch_scores" in location or "branch_ranks" in location:
-        if error_type == "literal_error":
-            return "E_BRANCH_NAME"
     if error_type == "finite_number":
         return "E_NONFINITE_SCORE"
     if error_type == "extra_forbidden":
