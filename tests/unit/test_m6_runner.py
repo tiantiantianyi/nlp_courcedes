@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from PIL import Image
+
 from anima_search.m6.contract import M5QueryBatch
 from anima_search.m6.runner import rerank_query_batch
+from anima_search.retrieval.reranker import VisualReranker
 from anima_search.schemas import SearchResult
 
 
@@ -147,3 +152,43 @@ def test_reranker_degradation_metadata_reaches_output() -> None:
 
     assert result.degraded
     assert result.mismatch == ["appended missing IDs: ['val-2021']"]
+
+
+class InvalidJsonClient:
+    def generate(
+        self,
+        image: Image.Image,
+        prompt: str,
+        max_new_tokens: int,
+    ) -> str:
+        return "this is not JSON"
+
+
+def test_pointwise_all_candidate_failures_restore_exact_m5_order(
+    tmp_path: Path,
+) -> None:
+    payload = _batch().model_dump(mode="json")
+    for rank, candidate in enumerate(payload["candidates"], start=1):
+        candidate["fused_score"] = float(rank)
+        image_path = tmp_path / candidate["relative_path"]
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (4, 4), "navy").save(image_path)
+    batch = M5QueryBatch.model_validate(payload)
+    reranker = VisualReranker(
+        InvalidJsonClient(),
+        "return JSON",
+        tmp_path,
+    )
+
+    result = rerank_query_batch(batch, reranker, method="pointwise")
+
+    assert [item.image_id for item in result.candidates] == [
+        item.image_id for item in batch.candidates
+    ]
+    assert [item.rank for item in result.candidates] == list(range(1, 21))
+    assert all(item.rerank_score == 0.0 for item in result.candidates)
+    assert result.degraded
+    assert any(
+        message.startswith("视觉重排不可用：")
+        for message in result.mismatch
+    )

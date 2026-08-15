@@ -125,6 +125,20 @@ def rerank_query_batch(
             reason="reranker returned a non-SearchResult candidate",
         )
 
+    if method == "pointwise":
+        visual_failures = [
+            message
+            for item in returned
+            for message in item.mismatch
+            if message.startswith("视觉重排不可用：")
+        ]
+        if visual_failures:
+            return _hard_fallback(
+                batch,
+                method=method,
+                reason=visual_failures[0],
+            )
+
     source_ids = [candidate.image_id for candidate in batch.candidates]
     source_set = set(source_ids)
     unknown_ids = [
