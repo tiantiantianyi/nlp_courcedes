@@ -93,3 +93,9 @@ def test_story_gap_records_generation_contract_and_ai_marker():
 def test_story_order_preserves_selection_without_annotations():
     selected = [result("b"), result("a"), result("c")]
     assert order_story_candidates(selected, {}) == selected
+
+
+def test_canonical_dawn_dusk_uses_explicit_twilight_bucket():
+    item = annotation("twilight", time="dawn_dusk", scene="海边")
+
+    assert time_bucket(item) == (4, "晨昏")

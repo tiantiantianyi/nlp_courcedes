@@ -19,6 +19,20 @@ _TIME_BUCKETS: tuple[tuple[str, tuple[str, ...]], ...] = (
 def time_bucket(annotation: ImageAnnotation | None) -> tuple[int, str | None]:
     if annotation is None:
         return len(_TIME_BUCKETS), None
+    canonical_time = next(
+        (
+            value.split(":", 1)[1].strip().lower()
+            for value in annotation.attributes
+            if value.startswith("time_of_day:") and ":" in value
+        ),
+        None,
+    )
+    canonical_buckets = {
+        "night": (5, "夜晚"),
+        "dawn_dusk": (4, "晨昏"),
+    }
+    if canonical_time in canonical_buckets:
+        return canonical_buckets[canonical_time]
     text = " ".join(
         [annotation.scene, annotation.summary, *annotation.attributes]
     ).lower()
