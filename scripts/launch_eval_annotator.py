@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import gradio as gr
 
-from anima_search.config import load_config
+from anima_search.config import load_config, resolve_path
 from anima_search.evaluation.manual_set import (
     QUERY_CATEGORIES,
     format_judgments,
@@ -147,7 +147,14 @@ def main() -> None:
 
     config = load_config(args.config)
     app = build_app(args.queries, args.relevance, Path(config["project_root"]))
-    app.launch(server_port=args.port, share=args.share)
+    app.launch(
+        server_port=args.port,
+        share=args.share,
+        allowed_paths=[
+            str(resolve_path(config, str(config["data"]["train_dir"])).resolve()),
+            str(resolve_path(config, str(config["data"]["val_dir"])).resolve()),
+        ],
+    )
 
 
 if __name__ == "__main__":
