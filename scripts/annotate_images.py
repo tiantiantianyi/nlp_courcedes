@@ -9,6 +9,11 @@ from anima_search.config import load_config, resolve_path
 from anima_search.schemas import ManifestItem
 
 
+def generation_prompt_version(config: dict) -> str:
+    annotation = config["annotation"]
+    return str(annotation.get("generation_prompt_version") or annotation["prompt_version"])
+
+
 def load_scene_prompts(path: Path, base_prompt: str) -> dict[str, str]:
     prompts: dict[str, str] = {}
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -73,7 +78,8 @@ def main() -> None:
     client = QwenVLClient(resolve_path(config, config["models"]["qwen_vl"]),
         config["runtime"]["dtype"], config["runtime"]["device"],
         config["runtime"]["max_image_pixels"])
-    output = artifacts / "annotations" / f"{split}.{config['annotation']['prompt_version']}.jsonl"
+    generated_version = generation_prompt_version(config)
+    output = artifacts / "annotations" / f"{split}.{generated_version}.jsonl"
     success = failed = 0
     if prompts_by_image_id is None:
         batches = [(prompt, items)]
@@ -86,7 +92,7 @@ def main() -> None:
     for selected_prompt, selected_items in batches:
         batch_success, batch_failed = annotate_items(
             selected_items, client, selected_prompt, output, Path(config["project_root"]),
-            config["annotation"]["prompt_version"], config["annotation"]["retries"],
+            generated_version, config["annotation"]["retries"],
             config["annotation"]["max_new_tokens"],
         )
         success += batch_success

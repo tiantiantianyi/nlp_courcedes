@@ -10,8 +10,11 @@ models:
   image_embedder: models/chinese-clip-vit-base-patch16
   jina_clip_v2: models/jina-clip-v2
 annotation:
+  source: ../M1_clean_annotations_v1.3/qwen3.5_9b_annotations.jsonl
   prompt: configs/prompts/caption_verified_v4.txt
-  prompt_version: caption_verified_v4
+  prompt_version: qwen35-canonical-v1.3
+  generation_prompt_version: caption_verified_v4
+  allow_missing: true
   max_new_tokens: 768
   temperature: 0.1
   retries: 2
