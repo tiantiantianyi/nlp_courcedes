@@ -20,6 +20,8 @@ from anima_search.indexing.index_manifest import (
     write_index_manifest,
 )
 from anima_search.indexing.vector_index import VectorIndex
+from anima_search.schemas import ImageAnnotation
+from scripts.build_indexes import _load_annotations
 
 
 class FakeTextEncoder:
@@ -225,3 +227,99 @@ def test_manifest_rejects_annotation_id_mismatch(tmp_path):
     validate_index_manifest(manifest, ["a", "b"], {"text": ["a", "b"]})
     with pytest.raises(ValueError, match="image IDs"):
         validate_index_manifest(manifest, ["b", "a"], {"text": ["b", "a"]})
+
+
+def test_index_manifest_persists_portable_image_records(tmp_path):
+    annotations = tmp_path / "val.jsonl"
+    annotations.write_text(json.dumps({"image_id": "val-2002"}) + "\n", encoding="utf-8")
+
+    payload = write_index_manifest(
+        tmp_path / "manifest.json",
+        split="val",
+        image_ids=["val-2002"],
+        annotation_path=annotations,
+        annotation_version="qwen35-canonical-v1.3",
+        branches={"image": {"record_count": 1}},
+        config_digest="a" * 64,
+        image_records=[{
+            "image_id": "val-2002",
+            "relative_path": "../Val/2002.jpg",
+            "sha256": "b" * 64,
+        }],
+    )
+
+    assert payload["image_records"][0]["relative_path"] == "../Val/2002.jpg"
+
+
+def test_load_annotations_uses_numeric_image_id_order(tmp_path):
+    records = [
+        ImageAnnotation(
+            image_id=image_id,
+            split="Train",
+            relative_path=f"../Train/{numeric_id}.jpg",
+            sha256=numeric_id,
+            summary=f"图像 {numeric_id}",
+            scene="测试场景",
+            search_queries=["a", "b", "c"],
+            generation_prompt="test",
+            model_version="qwen",
+            prompt_version="v1",
+        )
+        for image_id, numeric_id in (
+            ("train-10", "10"),
+            ("train-alpha", "alpha"),
+            ("train-2", "2"),
+        )
+    ]
+    annotation_path = tmp_path / "train.v1.jsonl"
+    annotation_path.write_text(
+        "".join(item.model_dump_json() + "\n" for item in records),
+        encoding="utf-8",
+    )
+
+    loaded = _load_annotations(annotation_path, "train", limit=None)
+
+    assert [item.image_id for item in loaded] == [
+        "train-2",
+        "train-10",
+        "train-alpha",
+    ]
+
+
+def test_manifest_validation_rejects_image_record_order_mismatch(tmp_path):
+    annotations = tmp_path / "annotations.jsonl"
+    annotations.write_text(json.dumps({"image_id": "a"}) + "\n", encoding="utf-8")
+    payload = write_index_manifest(
+        tmp_path / "manifest.json",
+        split="val",
+        image_ids=["a", "b"],
+        annotation_path=annotations,
+        annotation_version="v1",
+        branches={"text": {"record_count": 2}},
+        image_records=[
+            {"image_id": "b", "relative_path": "../Val/b.jpg", "sha256": "b"},
+            {"image_id": "a", "relative_path": "../Val/a.jpg", "sha256": "a"},
+        ],
+    )
+
+    with pytest.raises(ValueError, match="image records"):
+        validate_index_manifest(payload, ["a", "b"], {"text": ["a", "b"]})
+
+
+def test_manifest_validation_rejects_image_record_without_sha256(tmp_path):
+    annotations = tmp_path / "annotations.jsonl"
+    annotations.write_text(json.dumps({"image_id": "a"}) + "\n", encoding="utf-8")
+    payload = write_index_manifest(
+        tmp_path / "manifest.json",
+        split="val",
+        image_ids=["a"],
+        annotation_path=annotations,
+        annotation_version="v1",
+        branches={"text": {"record_count": 1}},
+        image_records=[
+            {"image_id": "a", "relative_path": "../Val/a.jpg", "sha256": ""},
+        ],
+    )
+
+    with pytest.raises(ValueError, match="missing sha256"):
+        validate_index_manifest(payload, ["a"], {"text": ["a"]})

@@ -65,6 +65,14 @@ def test_build_indexes_cli_creates_bm25_snapshot_and_manifest(tmp_path):
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["active_branches"] == ["bm25"]
     assert manifest["record_count"] == 2
+    assert manifest["image_records"] == [
+        {
+            "image_id": record.image_id,
+            "relative_path": record.relative_path,
+            "sha256": record.sha256,
+        }
+        for record in records
+    ]
     assert (output / "annotations.json").is_file()
     assert BM25Index.load(output / "bm25.pkl").search("雨夜", 1)[0][0] == "train-1"
 

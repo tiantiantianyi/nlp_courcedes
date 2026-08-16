@@ -22,6 +22,13 @@ from anima_search.schemas import ImageAnnotation
 VALID_BRANCHES = ("image", "text", "bm25")
 
 
+def _image_id_key(annotation: ImageAnnotation) -> tuple[str, int, int | str]:
+    prefix, _, suffix = annotation.image_id.rpartition("-")
+    if suffix.isdigit():
+        return (prefix, 0, int(suffix))
+    return (prefix, 1, suffix)
+
+
 def _parse_branches(value: str | None, config: dict) -> list[str]:
     raw = value.split(",") if value else config["retrieval"].get("enabled_branches", VALID_BRANCHES)
     branches = list(dict.fromkeys(str(item).strip().lower() for item in raw if str(item).strip()))
@@ -52,7 +59,7 @@ def _load_annotations(path: Path, split: str, limit: int | None) -> list[ImageAn
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    annotations = sorted(annotations, key=lambda item: item.image_id)
+    annotations = sorted(annotations, key=_image_id_key)
     if limit is not None:
         annotations = annotations[:limit]
     if not annotations:
@@ -192,6 +199,14 @@ def main() -> None:
         annotation_version=config["annotation"]["prompt_version"],
         branches=built,
         config_digest=sha256_file(Path(args.config).resolve()),
+        image_records=[
+            {
+                "image_id": item.image_id,
+                "relative_path": item.relative_path.replace("\\", "/"),
+                "sha256": item.sha256,
+            }
+            for item in annotations
+        ],
     )
     if failures:
         manifest["branch_failures"] = failures
