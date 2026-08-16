@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
-from anima_search.evaluation.runner import evaluate_queries
+from anima_search.evaluation.runner import _aggregate_details, evaluate_queries
 
 
 _A5_VARIANTS = (
@@ -61,6 +61,73 @@ def run_a5_ablation(
     return rows
 
 
+def _summarize_details(details: list[dict[str, object]]) -> dict[str, object]:
+    if not details:
+        raise ValueError("cannot summarize an empty A5 query subset")
+    categories = sorted({str(row["category"]) for row in details})
+    return {
+        "overall": _aggregate_details(details),
+        "by_category": {
+            category: _aggregate_details(
+                [row for row in details if str(row["category"]) == category]
+            )
+            for category in categories
+        },
+    }
+
+
+def run_formal_a5_ablation(
+    service_factory: Callable[[list[str], str], object],
+    queries: list[dict[str, object]],
+    relevance: dict[str, dict[str, int]],
+    *,
+    graded_candidate_ids: dict[str, set[str]],
+) -> list[dict[str, object]]:
+    query_ids = {str(row["query_id"]) for row in queries}
+    unknown = sorted(set(graded_candidate_ids) - query_ids)
+    if unknown:
+        raise ValueError(f"graded subset contains unknown query IDs: {unknown}")
+    if not graded_candidate_ids:
+        raise ValueError("graded subset must not be empty")
+    for query_id, expected_ids in graded_candidate_ids.items():
+        actual_ids = set(relevance.get(query_id, {}))
+        if actual_ids != set(expected_ids):
+            raise ValueError(
+                "formal A5 requires complete candidate-pool judgments for "
+                f"{query_id}; missing={sorted(set(expected_ids) - actual_ids)}, "
+                f"extra={sorted(actual_ids - set(expected_ids))}"
+            )
+
+    variants: list[dict[str, object]] = []
+    for variant in a5_ablation_matrix():
+        branches = list(variant["branches"])
+        fusion_method = str(variant["fusion_method"])
+        service = service_factory(branches, fusion_method)
+        try:
+            details, all_summary = evaluate_queries(
+                service, queries, relevance, use_reranker=False
+            )
+        finally:
+            release = getattr(service, "release_retrieval_encoders", None)
+            if callable(release):
+                release()
+        graded_details = [
+            row for row in details if str(row["query_id"]) in graded_candidate_ids
+        ]
+        variants.append(
+            {
+                "variant": str(variant["variant"]),
+                "branches": branches,
+                "fusion_method": fusion_method,
+                "reranker": False,
+                "all_queries": all_summary,
+                "graded_queries": _summarize_details(graded_details),
+                "details": details,
+            }
+        )
+    return variants
+
+
 def _latex_rows(rows: list[dict[str, object]]) -> str:
     lines = [
         r"\begin{tabular}{lrrrrrr}",
@@ -105,4 +172,58 @@ def write_ablation_results(
         writer.writeheader()
         writer.writerows(csv_rows)
     paths["latex"].write_text(_latex_rows(rows), encoding="utf-8")
+    return paths
+
+
+def write_formal_a5_results(
+    output_dir: Path,
+    variants: list[dict[str, object]],
+    *,
+    provenance: dict[str, object],
+) -> dict[str, Path]:
+    if not variants:
+        raise ValueError("no formal A5 results to write")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "json": output_dir / "a5_formal_results.json",
+        "csv": output_dir / "a5_formal_results.csv",
+        "latex": output_dir / "a5_formal_results.tex",
+    }
+    payload = {
+        "schema_version": "formal-a5-results-v1.0",
+        "provenance": provenance,
+        "variants": variants,
+    }
+    paths["json"].write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    csv_rows: list[dict[str, object]] = []
+    latex_by_scope: dict[str, list[dict[str, object]]] = {
+        "all_queries": [],
+        "graded_queries": [],
+    }
+    for variant in variants:
+        for scope in ("all_queries", "graded_queries"):
+            overall = dict(dict(variant[scope])["overall"])
+            csv_rows.append(
+                {
+                    "scope": scope,
+                    "variant": variant["variant"],
+                    "branches": ",".join(str(value) for value in variant["branches"]),
+                    "fusion_method": variant["fusion_method"],
+                    **overall,
+                }
+            )
+            latex_by_scope[scope].append({"variant": variant["variant"], **overall})
+    with paths["csv"].open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(csv_rows[0]))
+        writer.writeheader()
+        writer.writerows(csv_rows)
+    paths["latex"].write_text(
+        "% All 100 source-positive queries\n"
+        + _latex_rows(latex_by_scope["all_queries"])
+        + "\n% Balanced 50-query graded candidate pool\n"
+        + _latex_rows(latex_by_scope["graded_queries"]),
+        encoding="utf-8",
+    )
     return paths
