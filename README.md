@@ -11,6 +11,8 @@
 - [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
 - [2026-08-11 M4 查询理解三后端报告](docs/M4_QUERY_BACKENDS_2026-08-11.md)
 - [2026-08-11 A7 图像编码器资源对比](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)
+- [M3--M7 最终 Demo 操作手册](docs/FINAL_DEMO_RUNBOOK.md)
+- [Conda/Pixi/Docker GPU 部署说明](docs/DEPLOY.md)
 - 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
 - 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 

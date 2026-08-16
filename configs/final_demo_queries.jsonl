@@ -1,0 +1,5 @@
+{"query_id":"q007","text":"长颈鹿进食","category":"simple","expected_source_image_id":"val-2033"}
+{"query_id":"q001","text":"一只在窗边趴着的表情严肃的猫","category":"compositional","expected_source_image_id":"val-2007"}
+{"query_id":"q072","text":"没有人物的乡间田野和远山","category":"negative","expected_source_image_id":"val-2340"}
+{"query_id":"q082","text":"桌上摆着七个烤生蚝","category":"count","expected_source_image_id":"val-2138"}
+{"query_id":"q093","text":"写有“库仑定律”的物理笔记","category":"ocr","expected_source_image_id":"val-2111"}
