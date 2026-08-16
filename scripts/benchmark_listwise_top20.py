@@ -9,11 +9,62 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from anima_search.app.factory import create_service
 from anima_search.evaluation.listwise_benchmark import benchmark_listwise_candidates
+from anima_search.evaluation.ground_truth import load_relevance
+from anima_search.evaluation.rerank_quality import build_rerank_quality
 from anima_search.evaluation.rerank_benchmark import benchmark_candidates
 from anima_search.evaluation.rerank_suite import load_operational_queries
 from anima_search.retrieval.listwise_reranker import ListwiseVisualReranker
 from anima_search.retrieval.reranker import VisualReranker
 
+
+
+def _validate_quality_options(
+    *,
+    relevance: Path | None,
+    quality_output: Path | None,
+    graded_only: bool,
+) -> None:
+    if relevance is None and (quality_output is not None or graded_only):
+        raise ValueError(
+            "--relevance is required with --quality-output or --graded-only"
+        )
+
+
+def _select_benchmark_queries(
+    queries: list[dict[str, str]],
+    *,
+    relevance: dict[str, dict[str, int]],
+    graded_only: bool,
+    qrels_validation: dict[str, object] | None,
+    query_limit: int,
+) -> list[dict[str, str]]:
+    if not graded_only:
+        return queries[:query_limit]
+    if not qrels_validation:
+        raise ValueError(
+            "--graded-only requires qrels_validation.json with graded_query_ids"
+        )
+    raw_ids = qrels_validation.get("graded_query_ids")
+    if not isinstance(raw_ids, list) or not raw_ids:
+        raise ValueError(
+            "qrels validation must contain a non-empty graded_query_ids list"
+        )
+    graded_ids = [str(query_id) for query_id in raw_ids]
+    if len(graded_ids) != len(set(graded_ids)):
+        raise ValueError("qrels validation contains duplicate graded_query_ids")
+    by_id = {str(row["query_id"]): row for row in queries}
+    unknown = sorted(set(graded_ids) - set(by_id))
+    missing_relevance = sorted(set(graded_ids) - set(relevance))
+    if unknown:
+        raise ValueError(f"graded_query_ids are absent from benchmark queries: {unknown}")
+    if missing_relevance:
+        raise ValueError(
+            f"graded_query_ids are absent from relevance judgments: {missing_relevance}"
+        )
+    selected = [by_id[query_id] for query_id in graded_ids]
+    if query_limit < len(selected):
+        selected = selected[:query_limit]
+    return selected
 
 def _aggregate(
     pointwise_records: list[dict[str, object]],
@@ -92,6 +143,14 @@ def main() -> None:
         type=Path,
         default=Path("configs/m6_benchmark_queries.jsonl"),
     )
+    parser.add_argument("--relevance", type=Path)
+    parser.add_argument("--quality-output", type=Path)
+    parser.add_argument(
+        "--qrels-validation",
+        type=Path,
+        help="Defaults to qrels_validation.json beside --relevance.",
+    )
+    parser.add_argument("--graded-only", action="store_true")
     parser.add_argument("--config", default="configs/benchmark_8gb.yaml")
     parser.add_argument("--split", choices=["train", "val"], default="val")
     parser.add_argument(
@@ -109,12 +168,37 @@ def main() -> None:
         default=Path("artifacts/evaluation/m6_listwise_top20_8gb.json"),
     )
     args = parser.parse_args()
+    try:
+        _validate_quality_options(
+            relevance=args.relevance,
+            quality_output=args.quality_output,
+            graded_only=args.graded_only,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
     if not 1 <= args.top_k <= 20:
         parser.error("--top-k must be between 1 and 20")
     if args.query_limit <= 0 or args.repeats <= 0:
         parser.error("--query-limit and --repeats must be positive")
 
-    queries = load_operational_queries(args.queries)[: args.query_limit]
+    all_queries = load_operational_queries(args.queries)
+    relevance = load_relevance(args.relevance) if args.relevance is not None else {}
+    qrels_validation: dict[str, object] | None = None
+    if args.graded_only:
+        validation_path = args.qrels_validation or (
+            args.relevance.parent / "qrels_validation.json"
+        )
+        qrels_validation = json.loads(validation_path.read_text(encoding="utf-8"))
+    queries = _select_benchmark_queries(
+        all_queries,
+        relevance=relevance,
+        graded_only=args.graded_only,
+        qrels_validation=qrels_validation,
+        query_limit=args.query_limit,
+    )
+    if not queries:
+        raise ValueError("no benchmark queries remain after quality filtering")
+
     service = create_service(args.config, args.split, args.branches)
     settings = service.config["retrieval"]
     settings["candidate_count"] = max(int(settings["candidate_count"]), args.top_k)
@@ -207,6 +291,9 @@ def main() -> None:
                     "query_id": query["query_id"],
                     "category": query["category"],
                     "query": query_text,
+                    "baseline_image_ids": [
+                        candidate.image_id for candidate in candidates
+                    ],
                     "pointwise": point_summary,
                     "listwise": list_summary,
                 }
@@ -223,6 +310,27 @@ def main() -> None:
     summary["retrieval_branches"] = args.branches
     summary["released_retrieval_encoders"] = released
     summary["warmup"] = "one unmeasured pointwise candidate before both methods"
+    quality_payload: dict[str, object] | None = None
+    if args.quality_output is not None:
+        baseline_by_query = {
+            str(query["query_id"]): [candidate.image_id for candidate in candidates]
+            for query, candidates in candidate_sets
+        }
+        quality_payload = build_rerank_quality(
+            baseline_by_query=baseline_by_query,
+            pointwise_records=pointwise_records,
+            listwise_records=listwise_records,
+            relevance=relevance,
+        )
+        summary["quality_claim"] = "evaluated_with_relevance_judgments"
+        summary["quality_output"] = str(args.quality_output)
+        summary["quality"] = quality_payload["summary"]
+        args.quality_output.parent.mkdir(parents=True, exist_ok=True)
+        args.quality_output.write_text(
+            json.dumps(quality_payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
     payload = {
         "summary": summary,
         "per_query": per_query,

@@ -99,6 +99,15 @@ def test_finalize_qrels_replaces_graded_subset_and_preserves_zero(tmp_path: Path
     assert summary["valid"] is True
     assert summary["single_positive_query_count"] == 5
     assert summary["graded_pool_query_count"] == 5
+    assert summary["graded_query_ids"] == ["q001", "q002", "q003", "q004", "q005"]
+    assert summary["single_positive_query_ids"] == [
+        "q006",
+        "q007",
+        "q008",
+        "q009",
+        "q010",
+    ]
+
     assert summary["grade_counts"] == {"0": 5, "1": 0, "2": 10}
 
     paths = write_finalized_qrels(tmp_path, final_queries, final_rows, summary)

@@ -159,6 +159,14 @@ def finalize_qrels(
         "relevance_row_count": len(final_rows),
         "single_positive_query_count": len(queries) - len(pool_by_query),
         "graded_pool_query_count": len(pool_by_query),
+        "graded_query_ids": [
+            query_id for query_id in query_by_id if query_id in pool_by_query
+        ],
+        "single_positive_query_ids": [
+            query_id
+            for query_id in query_by_id
+            if query_id not in pool_by_query
+        ],
         "graded_category_counts": {
             category: sum(
                 str(query_by_id[query_id]["category"]) == category
