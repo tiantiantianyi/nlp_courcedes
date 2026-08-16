@@ -297,6 +297,35 @@ python scripts/run_ablation.py \
   --relevance artifacts/evaluation/val_relevance.csv
 ```
 
+当前两批已审核查询可合并为只含来源图正例的正式 100 条集合，再从五类中各选
+10 条，通过五个 A5 变体构建候选池：
+
+```bash
+conda run -n vlm-course python scripts/prepare_formal_eval.py \
+  --queries evaluation/manual_val_50/queries.jsonl evaluation/manual_val_50_assisted/queries.jsonl \
+  --relevance evaluation/manual_val_50/relevance.csv evaluation/manual_val_50_assisted/relevance.csv \
+  --output-dir evaluation/formal_val_100 --expected-count 100
+
+env -u ALL_PROXY -u all_proxy conda run -n vlm-course \
+  python scripts/build_relevance_pool.py \
+  --queries evaluation/formal_val_100/queries.jsonl \
+  --graded-query-count 50 --per-variant-k 5 --candidate-cap 25 \
+  --output artifacts/evaluation/formal/relevance_pool.jsonl
+```
+
+候选池生成后，在本机打开候选级 `0/1/2` 标注页：
+
+```bash
+env -u ALL_PROXY -u all_proxy conda run -n vlm-course \
+  python scripts/launch_candidate_annotator.py \
+  --pool artifacts/evaluation/formal/relevance_pool.jsonl \
+  --output artifacts/evaluation/formal/candidate_relevance.csv --port 7864
+```
+
+绿色边框来源图必须为 2；其余候选不会被默认标成 0，必须逐图判断。只有当前
+查询的每个候选都有显式等级、标注者非空且勾选“已逐图审核”，该查询才计入完成
+进度。`artifacts/evaluation/` 默认不提交 Git，避免把中间运行产物误当成冻结结论。
+
 没有正式 relevance 文件时只能完成代码和 dry-run，不能生成课程报告结论。
 
 在正式 relevance 尚未完成时，可运行仅比较排名差异与延迟的工程对照：
