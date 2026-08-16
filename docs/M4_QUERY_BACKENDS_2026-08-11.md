@@ -81,7 +81,9 @@ DASHSCOPE_API_KEY、DEEPSEEK_API_KEY、OPENROUTER_API_KEY。因此不能诚实�
 补齐免费 Key 后执行：
 
     export SILICONFLOW_API_KEY=你的密钥
-    python scripts/verify_m4_query_parser.py --backend openai_compatible
+    python scripts/verify_m4_query_parser.py --backend openai_compatible \
+      --query "雨夜城市街道，没有人物" \
+      --output artifacts/evaluation/m4_api_smoke.json
 
 配置默认值为：
 
@@ -114,9 +116,15 @@ DASHSCOPE_API_KEY、DEEPSEEK_API_KEY、OPENROUTER_API_KEY。因此不能诚实�
 提交前完整回归、编译和补丁格式检查均通过：117 passed。
 
     conda activate vlm-course
-    python scripts/verify_m4_query_parser.py --backend rules
-    python scripts/verify_m4_query_parser.py --backend local_qwen
-    python scripts/verify_m4_query_parser.py --backend openai_compatible
+    python scripts/verify_m4_query_parser.py --backend rules \
+      --queries-file configs/m6_benchmark_queries.jsonl \
+      --output artifacts/evaluation/m4_rules_12.json
+    python scripts/verify_m4_query_parser.py --backend local_qwen \
+      --query "雨夜城市街道，没有人物" \
+      --output artifacts/evaluation/m4_local_qwen_smoke.json
+    python scripts/verify_m4_query_parser.py --backend openai_compatible \
+      --query "雨夜城市街道，没有人物" \
+      --output artifacts/evaluation/m4_api_smoke.json
 
 定向测试：
 

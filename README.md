@@ -162,13 +162,19 @@ retrieval.query_parser_backend 支持三种值：
 
 直接验证规则或本地 Qwen：
 
-    python scripts/verify_m4_query_parser.py --backend rules
-    python scripts/verify_m4_query_parser.py --backend local_qwen
+    python scripts/verify_m4_query_parser.py --backend rules \
+      --queries-file configs/m6_benchmark_queries.jsonl \
+      --output artifacts/evaluation/m4_rules_12.json
+    python scripts/verify_m4_query_parser.py --backend local_qwen \
+      --query "雨夜城市街道，没有人物" \
+      --output artifacts/evaluation/m4_local_qwen_smoke.json
 
 免费 API 示例使用 SiliconFlow 兼容接口。不要把 Key 写入 YAML 或 Git：
 
     export SILICONFLOW_API_KEY=你的密钥
-    python scripts/verify_m4_query_parser.py --backend openai_compatible
+    python scripts/verify_m4_query_parser.py --backend openai_compatible \
+      --query "雨夜城市街道，没有人物" \
+      --output artifacts/evaluation/m4_api_smoke.json
 
 若 API 缺 Key、超时、限流或输出不合法，查询会自动回退到规则解析；硬否定、数量、
 时间、天气和 OCR 条件始终由确定性规则保护，避免 LLM 猜测变成错误硬过滤。
