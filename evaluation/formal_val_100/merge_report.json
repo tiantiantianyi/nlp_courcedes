@@ -1,0 +1,30 @@
+{
+  "query_count": 100,
+  "relevance_row_count": 100,
+  "reviewed_count": 100,
+  "category_counts": {
+    "simple": 28,
+    "compositional": 26,
+    "negative": 14,
+    "count": 14,
+    "ocr": 18
+  },
+  "annotators": [
+    "张添翼"
+  ],
+  "query_paths": [
+    "evaluation/manual_val_50/queries.jsonl",
+    "evaluation/manual_val_50_assisted/queries.jsonl"
+  ],
+  "relevance_paths": [
+    "evaluation/manual_val_50/relevance.csv",
+    "evaluation/manual_val_50_assisted/relevance.csv"
+  ],
+  "schema_version": "formal-evaluation-merge-v1.0",
+  "input_sha256": {
+    "evaluation/manual_val_50/queries.jsonl": "e99f91c1724f4ca1e9d9355b1523c4fcae052d70d10cd57d9efefdf5a43f8efb",
+    "evaluation/manual_val_50_assisted/queries.jsonl": "7fa30086984649ebaa33cc699a8792c0a4b21bd7c89d21697f99fd5f4db52fdd",
+    "evaluation/manual_val_50/relevance.csv": "4f0babac491d627b722d3a5888c0b4b5926cf1524ef48a83ae30ff4fc25bdd53",
+    "evaluation/manual_val_50_assisted/relevance.csv": "9149285ab5c8dd2703e9ea34299ddc5bcca942a79289b4a4b1a929d4635940ac"
+  }
+}
