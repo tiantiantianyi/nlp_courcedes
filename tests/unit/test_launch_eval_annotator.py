@@ -27,6 +27,7 @@ def test_task_form_values_exposes_source_id_and_defaults_annotator(
 
     assert values[2] == "val-2007"
     assert values[5] == "张添翼"
+    assert values[7] == "val-2007:2"
 
 
 def test_task_form_values_preserves_saved_annotator(tmp_path: Path) -> None:
@@ -37,6 +38,24 @@ def test_task_form_values_preserves_saved_annotator(tmp_path: Path) -> None:
     )
 
     assert values[5] == "已有标注者"
+
+
+def test_task_form_values_preserves_existing_judgments(tmp_path: Path) -> None:
+    rows = [
+        {
+            "query_id": "q001",
+            "image_id": "val-2010",
+            "relevance": "1",
+        }
+    ]
+
+    values = launch_eval_annotator._task_form_values(
+        _task(annotator="张添翼", category="simple"),
+        rows,
+        tmp_path,
+    )
+
+    assert values[7] == "val-2010:1"
 
 
 def test_category_choices_have_chinese_labels_and_stable_values() -> None:

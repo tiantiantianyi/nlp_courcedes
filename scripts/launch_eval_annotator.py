@@ -34,6 +34,7 @@ def _task_form_values(
 ) -> tuple[object, ...]:
     image_path = project_root / str(task["source_relative_path"])
     query_id = str(task["query_id"])
+    judgments = format_judgments(rows, query_id) or f"{task['source_image_id']}:2"
     return (
         str(image_path),
         query_id,
@@ -42,7 +43,7 @@ def _task_form_values(
         str(task.get("category", "")) or None,
         str(task.get("annotator", "")).strip() or DEFAULT_ANNOTATOR,
         str(task.get("note", "")),
-        format_judgments(rows, query_id),
+        judgments,
         bool(task.get("reviewed", False)),
     )
 
