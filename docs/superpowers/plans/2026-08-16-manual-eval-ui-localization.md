@@ -13,7 +13,8 @@
 - Chinese labels are display-only; persisted values remain `simple`, `compositional`, `negative`, `count`, and `ocr`.
 - `source_image_id` is read-only and comes from the task JSONL; never infer or fabricate it.
 - Blank tasks display `张添翼`; a saved non-empty annotator is preserved.
-- Do not generate query text or relevance grades automatically.
+- Blank judgments default to `<source_image_id>:2`; existing judgments are preserved.
+- Do not auto-review, auto-save, generate query text, or score other candidate images.
 - Do not modify the manual-evaluation JSONL/CSV schema or M3–M7 pipeline behavior.
 - Use `conda run -n vlm-course` for Python commands.
 
@@ -48,6 +49,7 @@ def test_task_form_values_exposes_source_id_and_defaults_annotator(tmp_path: Pat
     values = launch_eval_annotator._task_form_values(task, [], tmp_path)
     assert values[2] == "val-2007"
     assert values[5] == "张添翼"
+    assert values[7] == "val-2007:2"
 
 
 def test_task_form_values_preserves_saved_annotator(tmp_path: Path) -> None:
@@ -73,6 +75,26 @@ def test_category_choices_have_chinese_labels_and_stable_values() -> None:
         ("数量查询", "count"),
         ("文字识别查询", "ocr"),
     ]
+
+
+def test_task_form_values_preserves_existing_judgments(tmp_path: Path) -> None:
+    task = {
+        "query_id": "q001",
+        "source_image_id": "val-2007",
+        "source_relative_path": "../Val/2007.jpg",
+        "text": "猫",
+        "category": "simple",
+        "annotator": "张添翼",
+        "note": "",
+        "reviewed": True,
+    }
+    rows = [{
+        "query_id": "q001",
+        "image_id": "val-2010",
+        "relevance": "1",
+    }]
+    values = launch_eval_annotator._task_form_values(task, rows, tmp_path)
+    assert values[7] == "val-2010:1"
 ```
 
 - [ ] **Step 2: Run the tests and verify RED**
@@ -109,6 +131,7 @@ def _task_form_values(
 ) -> tuple[object, ...]:
     image_path = project_root / str(task["source_relative_path"])
     query_id = str(task["query_id"])
+    judgments = format_judgments(rows, query_id) or f"{task['source_image_id']}:2"
     return (
         str(image_path),
         query_id,
@@ -117,7 +140,7 @@ def _task_form_values(
         str(task.get("category", "")) or None,
         str(task.get("annotator", "")).strip() or DEFAULT_ANNOTATOR,
         str(task.get("note", "")),
-        format_judgments(rows, query_id),
+        judgments,
         bool(task.get("reviewed", False)),
     )
 ```
