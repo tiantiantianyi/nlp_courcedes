@@ -1,0 +1,46 @@
+services:
+  askalbum:
+    build:
+      context: .
+      args:
+        PIXI_VERSION: "0.55.0"
+    image: askalbum-vlm:local
+    ports:
+      - "7860:7860"
+    environment:
+      HF_HUB_OFFLINE: "${HF_HUB_OFFLINE:-0}"
+      TRANSFORMERS_OFFLINE: "${TRANSFORMERS_OFFLINE:-0}"
+      SILICONFLOW_API_KEY: "${SILICONFLOW_API_KEY:-}"
+    volumes:
+      - type: bind
+        source: ../Val
+        target: /data/Val
+        read_only: true
+      - type: bind
+        source: ./artifacts/indexes
+        target: /app/artifacts/indexes
+        read_only: true
+      - type: bind
+        source: ./models
+        target: /app/models
+        read_only: true
+      - type: bind
+        source: ./Qwen--Qwen3-VL-2B-Instruct
+        target: /app/Qwen--Qwen3-VL-2B-Instruct
+        read_only: true
+      - type: bind
+        source: ./stablediffusion
+        target: /app/stablediffusion
+        read_only: true
+      - type: bind
+        source: ./artifacts/generated
+        target: /app/artifacts/generated
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    shm_size: "2gb"
+    restart: unless-stopped

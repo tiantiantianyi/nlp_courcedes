@@ -369,4 +369,15 @@ git status --short
 
 测试不下载模型，单元测试使用 fake client、临时图片和内存索引。真实 GPU 冒烟与正式实验需要另行准备本地模型和数据。
 
+## 11. 部署
+
+项目支持 Conda、锁定 Pixi 环境和 NVIDIA GPU Docker/Compose。容器不包含课程图片、模型、索引、生成结果或 API Key；目录检查、挂载权限、8GB 设置、Windows 注意事项和恢复命令见 [`docs/DEPLOY.md`](docs/DEPLOY.md)。
+
+```bash
+docker build --check .
+docker compose config --quiet
+mkdir -p artifacts/generated
+docker compose up --build
+```
+
 无标注阶段的 1–8 实施状态见 `LOCAL_NO_ANNOTATION_PLAN.md`。
