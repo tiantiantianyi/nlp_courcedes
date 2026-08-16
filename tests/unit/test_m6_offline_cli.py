@@ -63,6 +63,7 @@ def _paths(tmp_path: Path) -> dict[str, Path]:
         "config": config_path,
         "input": input_path,
         "output": project_root / "m6.jsonl",
+        "metrics": project_root / "m6-runtime-metrics.json",
         "report": project_root / "validation.json",
         "manifest": project_root / "manifest.json",
         "snapshot": snapshot_path,
@@ -77,6 +78,8 @@ def _argv(paths: dict[str, Path]) -> list[str]:
         str(paths["input"]),
         "--output",
         str(paths["output"]),
+        "--metrics-output",
+        str(paths["metrics"]),
         "--validation-report",
         str(paths["report"]),
         "--config",
@@ -184,3 +187,18 @@ def test_dry_run_writes_auditable_degraded_result_without_model(
     ]
     assert paths["input"].read_bytes() == original_input
     assert json.loads(paths["report"].read_text(encoding="utf-8"))["valid"]
+    metrics = json.loads(paths["metrics"].read_text(encoding="utf-8"))
+    query_metrics = metrics["queries"][0]
+    assert query_metrics["query_id"] == "dry-q001"
+    assert query_metrics["elapsed_seconds"] >= 0
+    assert query_metrics["method"] == "listwise"
+    assert query_metrics["mismatch"] == [
+        "dry-run: Qwen3-VL was not invoked"
+    ]
+    assert query_metrics["degraded"] is True
+    assert query_metrics["peak_vram_bytes"] is None
+    assert metrics["summary"]["count"] == 1
+    assert metrics["summary"]["degraded_count"] == 1
+    assert metrics["summary"]["total_elapsed_seconds"] >= 0
+    assert metrics["summary"]["mean_elapsed_seconds"] >= 0
+    assert metrics["summary"]["peak_vram_bytes"] is None

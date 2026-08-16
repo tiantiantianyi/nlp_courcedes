@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -36,6 +37,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--metrics-output", type=Path, required=True)
     parser.add_argument("--validation-report", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--index-manifest", type=Path, required=True)
@@ -127,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         },
         outputs={
             "output": args.output,
+            "metrics_output": args.metrics_output,
             "validation_report": args.validation_report,
         },
     )
@@ -160,13 +163,31 @@ def main(argv: list[str] | None = None) -> int:
         reranker, client = _real_reranker(config, method=args.method)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    query_metrics: list[dict[str, object]] = []
     try:
         with args.output.open("w", encoding="utf-8") as output:
             for batch in selected:
+                started = time.perf_counter()
                 result = rerank_query_batch(
                     batch,
                     reranker,
                     method=args.method,
+                )
+                elapsed_seconds = time.perf_counter() - started
+                peak_vram_bytes = (
+                    client.last_generation_metadata.get("peak_vram_bytes")
+                    if client is not None
+                    else None
+                )
+                query_metrics.append(
+                    {
+                        "query_id": result.query_id,
+                        "elapsed_seconds": elapsed_seconds,
+                        "method": result.rerank_method,
+                        "mismatch": result.mismatch,
+                        "degraded": result.degraded,
+                        "peak_vram_bytes": peak_vram_bytes,
+                    }
                 )
                 output.write(
                     json.dumps(
@@ -176,6 +197,41 @@ def main(argv: list[str] | None = None) -> int:
                     + "\n"
                 )
                 output.flush()
+        elapsed_values = [
+            float(metric["elapsed_seconds"]) for metric in query_metrics
+        ]
+        vram_values = [
+            int(metric["peak_vram_bytes"])
+            for metric in query_metrics
+            if metric["peak_vram_bytes"] is not None
+        ]
+        total_elapsed_seconds = sum(elapsed_values)
+        args.metrics_output.parent.mkdir(parents=True, exist_ok=True)
+        args.metrics_output.write_text(
+            json.dumps(
+                {
+                    "queries": query_metrics,
+                    "summary": {
+                        "count": len(query_metrics),
+                        "degraded_count": sum(
+                            bool(metric["degraded"])
+                            for metric in query_metrics
+                        ),
+                        "total_elapsed_seconds": total_elapsed_seconds,
+                        "mean_elapsed_seconds": (
+                            total_elapsed_seconds / len(query_metrics)
+                            if query_metrics
+                            else 0.0
+                        ),
+                        "peak_vram_bytes": max(vram_values, default=None),
+                    },
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     finally:
         if client is not None:
             client.unload()
