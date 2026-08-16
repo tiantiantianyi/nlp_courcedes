@@ -194,3 +194,67 @@ AI 标识，不能与真实数据集图片混淆。
 
 交付后依次执行接口校验、dry-run、单查询真实 M6、约定查询集 M6、三图 M7 故事、
 可选缺图补全，并把实测资源和输出证据追加到本报告。
+
+## 7. 2026-08-16 正式运行追加记录
+
+本节是第 4--6 节所述等待项到达后的追加记录，不改写 2026-08-15 当时的历史状态。
+正式 M5 输入、M6 结果、运行指标和三个 M7 故事均位于本地 `artifacts/`；原始图片、
+模型、索引和生成图片不提交 GitHub。
+
+### 7.1 M5→M6 与正式 listwise 运行
+
+| 项目 | 实测结果 |
+|---|---:|
+| M5 接口查询数 | 12 |
+| M5 候选数 | 240（每查询 Top-20） |
+| 接口问题数 | 0，`valid=true` |
+| M6 方法 | Qwen3-VL-2B-Instruct listwise |
+| M6 输出 | 12 行；每行 20 个唯一候选 |
+| 总耗时 | 110.968 秒 |
+| 平均每查询耗时 | 9.247 秒 |
+| 峰值 CUDA 显存 | 4,405,989,376 B（约 4.10 GiB） |
+| 无降级结果 | 4/12 |
+| 部分降级结果 | 8/12（66.7%） |
+| 硬失败/完整 M5 回退 | 0/12 |
+
+8 条部分降级均来自模型 listwise 输出中的重复或遗漏 ID。处理严格遵循
+`docs/M5_TO_M6_INTERFACE_V1.md` 第 9 节：重复 ID 去重，遗漏 ID 按 M5 原始顺序补到
+末尾，并写入 `degraded=true` 与具体 `mismatch`；没有未知 ID、空数组、无效 JSON 或
+异常导致的整批硬回退。因部分降级率较高，报告必须同时给出该数值，不能描述成
+“12 条全部无降级成功”。
+
+证据文件：
+
+- `artifacts/evaluation/m5_to_m6_candidates.jsonl`；
+- `artifacts/evaluation/m6_validation_report.json`；
+- `artifacts/evaluation/m6_rerank_results.jsonl`；
+- `artifacts/evaluation/m6_runtime_metrics.json`。
+
+### 7.2 三个 M7 正式故事
+
+| Query | 选择图片数 | 故事内 gap | 补图结果 | 关键验收 |
+|---|---:|---:|---|---|
+| `m6-q01` | 5 | 2 | 未请求生成，保留 missing 占位 | sections 顺序与 ordered IDs 一致 |
+| `m6-q03` | 5 | 1 | 1 张生成成功 | `source=generated`、`ai_generated=true` |
+| `m6-q09` | 5 | 2 | 未请求生成，保留 missing 占位 | sections 顺序与 ordered IDs 一致 |
+
+三个输出均为 `m7-story-v1.0`，selected IDs 与 ordered IDs 集合相同，且 section 顺序
+严格等于 ordered IDs。`m6-q03` 的转场为 `val-2044 → val-2078`，生成图片为
+`artifacts/generated/generated-20260816.png`（430,028 B）；故事 JSON 中保留
+`status=generated`、`source=generated` 和 `ai_generated=true`，不会与真实 Val 图片混淆。
+
+证据文件：
+
+- `artifacts/evaluation/m7_stories/m6-q01.json`；
+- `artifacts/evaluation/m7_stories/m6-q03.json`；
+- `artifacts/evaluation/m7_stories/m6-q09.json`；
+- `artifacts/generated/generated-20260816.png`。
+
+### 7.3 当前可声明范围
+
+本次运行完成了 M6 的 Top-20 listwise 资源与稳定性测试，以及 M7 的自动选图、故事内
+排序、缺图检测、真实补图和 AI 来源标识。M6/M7 定向回归为 49 passed。
+
+人工 relevance 仍在标注，因此这些结果不能用于声明 listwise 相对 M5 baseline 的 MRR、
+NDCG@10 或检索质量提升。A5/A6 的质量对照必须等人工查询与相关性判断通过完整性校验后
+再运行；该等待项不影响上述 M6/M7 工程联调与资源测试结论。
