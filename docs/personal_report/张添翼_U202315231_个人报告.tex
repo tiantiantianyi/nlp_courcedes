@@ -30,9 +30,11 @@
 M3--M5 多路索引、检索服务与 RRF 融合基线；我没有把这些已有代码记为个人独立成果，
 而是在其上继续扩展无标注开发流程、M5 融合对照、M6 视觉重排、M7 故事与缺图补全、
 M4 查询理解后端以及 A7 图像编码器适配。全部本地联调在 RTX 4060 Laptop 8GB 环境下
-开展，重点考察功能契约、异常降级、显存与时延。现阶段的 20/64 图实验只能支持工程和
-资源可行性结论；全量结构化标注、人工相关性判断（relevance judgments）及正式 A5--A7
-质量实验仍是团队共同依赖，本文不据小样声明 Recall、MRR、mAP 或 nDCG 提升。
+开展，重点考察功能契约、异常降级、显存与时延。队友生产的 Qwen3.5 canonical 标注
+已经完成只读验收，我在该交付上完成 adapter 迁移、Train 1993/Val 369 全量三路索引
+联调、M5→M6 接口和三个 M7 故事；另整理了 100 条已审核查询及五类均衡的 50 查询
+候选池。候选级相关性判断（relevance judgments）尚未冻结，因此本文只报告工程与
+单查询指标链路 smoke，不据来源图正例声明正式 Recall、MRR、mAP 或 nDCG 提升。
 
 \noindent\textbf{关键词：}视觉语言模型；多模态检索；重排序；视觉故事；本地部署
 \end{abstract}
@@ -65,11 +67,11 @@ M4 查询理解后端以及 A7 图像编码器适配。全部本地联调在 RTX
 \toprule
 模块 & 队友已有/共同起点 & 本人扩展 & 当前结论边界 \\
 \midrule
-M3 & 队友已有三路索引框架 & 补全 image-only、任意目录和编码器切换 & 全量索引待标注冻结 \\
+M3 & 队友已有三路索引框架 & 补全迁移、image-only 与一致性验证 & Train 1993/Val 369 三路索引已验收 \\
 M4 & 检索服务接口 & 补全规则、本地 Qwen、兼容 API 三后端 & 三查询只验证接口契约 \\
-M5 & 队友已有 RRF 基线 & 加入归一化加权融合和对照脚本 & 无人工相关性，不判质量优劣 \\
-M6 & 候选重排接口 & 补全 Top-20 listwise、校验和降级 & 小样只支持资源结论 \\
-M7 & 检索结果与 UI 起点 & 扩展自动故事、缺图补全和 AI 标识 & 故事质量待人工评分 \\
+M5 & 队友已有 RRF 基线 & 加入 weighted、Top-20 接口和评测池 & 候选级 qrels 未冻结 \\
+M6 & 候选重排接口 & 补全 Top-20 listwise、校验和质量接口 & 单查询 smoke 不是最终结论 \\
+M7 & 检索结果与 UI 起点 & 扩展自动故事、缺图补全和 AI 标识 & 三故事已跑，质量待人工评分 \\
 A7 & Chinese-CLIP 默认图像塔 & 适配 jina-clip-v2 并修复 NaN & 64 图只做资源对比 \\
 \bottomrule
 \end{tabularx}
@@ -95,6 +97,10 @@ image-only、full 三种运行模式，并增加任意图片目录的一键清�
 \textbf{验证：}隐藏目录与 image-only 流程经过自动化测试，阶段产物均放在 Git 忽略目录。
 \textbf{限制：}mock 只验证接口，image-only 只验证图像分支，两者均不能替代完整 M3 或
 检索质量实验。
+收到队友 Qwen3.5 canonical v1.3 后，我没有修改其原始标注，而是选择性迁移 adapter
+与导入 CLI，并用 manifest 的 image ID、split、路径和 SHA-256 做只读对齐。当前已导入
+Train 1993、Val 369 条记录，并在两个 split 上构建 image/text/BM25 三路索引；这项
+工作属于基线迁移、联调和验收，不把队友的标注生产或原始 M3--M5 实现记为本人工作。
 
 \subsection{M5：归一化加权融合对照}
 
@@ -111,9 +117,11 @@ image-only、full 三种运行模式，并增加任意图片目录的一键清�
 处理候选更快，却可能输出未知、重复或遗漏 ID。多模态大模型作为重排器已有相关探索
 \citep{ragvl}。\textbf{本人工作：}我把候选缩放为 5 列 contact sheet，保留编号和
 image ID，并实现输出白名单、编号映射、去重、遗漏项按原序补尾以及硬失败/部分降级分开
-计数。\textbf{验证：}3 条 Top-20 查询在 8GB 显存上运行完成，listwise 将每查询模型
-调用从 20 次降为 1 次。\textbf{限制：}其中 1/3 查询出现部分降级；没有人工 relevance，
-不能说明 listwise 排序质量优于 pointwise。
+计数。\textbf{验证：}阶段性 3 条 Top-20 查询在 8GB 显存上完成；后续 M5→M6 正式接口
+接收 12 查询、240 个唯一候选，listwise 总耗时 110.968 s、峰值约 4.10 GiB，硬失败
+为 0，但 8/12 出现重复或遗漏 ID 后的部分降级。\textbf{限制：}另有 q001 固定候选
+单查询 smoke 验证了 MRR/nDCG 计算链路；它只有来源图正例，不能说明 listwise 排序
+质量优于 pointwise，也不能替代 50 查询候选级 qrels。
 
 \subsection{M7：自动故事与缺图补全}
 
@@ -123,8 +131,10 @@ image ID，并实现输出白名单、编号映射、去重、遗漏项按原序
 故事与提示词生成、Stable Diffusion 1.5 FP16 补图，以及
 \texttt{source=generated}、\texttt{ai\_generated=true} 双重标识。进入扩散模型前卸载
 Qwen，生成失败时保留原故事并显示原因。交互页面基于 Gradio\citep{gradio}。
-\textbf{验证：}本地 Qwen 故事链和 512$\times$512 PNG 补图均真实运行，生成记录含固定
-seed 和 AI 标识。\textbf{限制：}SD 1.5 是适合本机联调的阶段模型，并非计划首选的
+\textbf{验证：}从 12 查询 M6 输出中选择三组、每组 5 张图片完成真实故事；其中 q03
+检测到一个转场缺口并生成 512$\times$512 PNG，记录同时具有
+\texttt{source=generated} 与 \texttt{ai\_generated=true}。\textbf{限制：}SD 1.5
+是适合本机联调的阶段模型，并非计划首选的
 SDXL/FLUX；现有结果不代表故事连贯性或风格一致性得分。
 
 \subsection{M4：三后端查询理解}
@@ -145,8 +155,19 @@ NaN，不能直接写入 FAISS。\textbf{本人工作：}我增加编码器配�
 截断与索引元数据，并用逐层钩子定位 NaN 首次出现于视觉塔第 0 层 RoPE。其非持久
 \texttt{freqs\_cos/freqs\_sin} 未从 checkpoint 恢复，我按模型配置确定性重建 buffer，
 同时在输出端加入 NaN/Inf 硬校验。\textbf{验证：}修复后的 8 图冒烟和 64 图资源测试均
-产生有限向量与非空 Top-5，完整仓库在 A7 提交时为 122 passed。
+产生有限向量与非空 Top-5；当前完整仓库回归为 248 passed。
 \textbf{限制：}两模型分数不在同一标尺；资源差异不能推出检索质量差异。
+
+\subsection{正式评测准备与防循环门禁}
+
+\textbf{问题：}只把每条查询的来源图片标成 2，会使所有系统都容易获得正例，却无法
+评价其余候选是相关、部分相关还是不相关；直接用检索分数生成标签又会形成循环论证。
+\textbf{本人工作：}我合并并复核两批查询，形成 100 条来源正例集合，类别分布为
+simple/compositional/negative/count/OCR = 28/26/14/14/18；再从五类各选 10 条，汇集
+CLIP-only、text-only、BM25-only、三路 RRF 和 weighted 的 Top-5，形成平均 10.8 个
+候选的 50 查询池。我补全候选级 0/1/2 审核页、零等级保留、qrels 冻结门禁、A5 五变体
+与 A6 固定候选质量接口。\textbf{当前边界：}100 条查询已经审核，但 50 查询候选池中
+非来源候选仍需逐图判断；正式结果文件不存在时，报告不生成 A5/A6 最终表。
 
 \section{本地实验与结果}
 
@@ -175,6 +196,27 @@ M6 数据说明 contact-sheet 方案能在 8GB 上运行，并减少本地调用
 10.085 s，后两条热调用均值约 2.697 s。M5 小样共 12 查询，RRF 与 weighted 的平均
 Top-8 重合率为 92.71\%，共同结果平均位次变化 0.446；单次平均延迟分别为 10.58 ms
 与 6.62 ms。样本和计时轮数有限，不能据此断言 weighted 总是更快。
+
+在正式 A6 接口上，我对 q001 的同一 Top-20 候选做了一次 source-positive smoke。
+Pointwise 20 次调用耗时 37.800 s、峰值 4.04 GiB；listwise 1 次调用耗时 9.158 s、
+峰值 4.09 GiB，无失败或降级，实测加速 4.128 倍。表中质量值只由来源图
+\texttt{val-2007} 一个正例计算，用于验证三种顺序的指标接线，不能推广到正式集合。
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{q001 固定 Top-20 的 source-positive 指标链路 smoke（非最终结果）}
+\begin{tabular}{lrrr}
+\toprule
+指标 & M5 baseline & Pointwise & Listwise \\
+\midrule
+MRR & 0.500 & 1.000 & 0.500 \\
+nDCG@10 & 0.631 & 1.000 & 0.631 \\
+模型调用数 & 0 & 20 & 1 \\
+推理耗时（s） & 0 & 37.800 & 9.158 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{table}[htbp]
 \centering
@@ -214,37 +256,36 @@ Qwen3-VL-2B 故事链及 SD 1.5 FP16 缺图生成也在本机串行运行，证�
   Stable Diffusion”串行卸载加载，避免多个模型同时常驻。该策略以时延换取本机可运行性。
 \end{enumerate}
 
-这些问题也说明，自动化测试通过与正式实验完成是两件事：A7 提交时 122 项测试通过，
-证明接口和回归状态，却不能替代数据覆盖、人工相关性和统计显著性。
+这些问题也说明，自动化测试通过与正式实验完成是两件事：当前 248 项测试通过，
+证明接口和回归状态，却不能替代候选级人工相关性、数据覆盖和统计显著性。
 
-\section{标注到达后的联调与实验计划}
+\section{标注到达后的完成项与剩余门禁}
 
-后续按依赖顺序执行，避免在数据尚未冻结时反复调参：
+队友标注到达后，我按只读边界完成了以下联调：
 
 \begin{enumerate}
-  \item \textbf{M1 交付验收：}校验文件数量、image ID 唯一性、schema、必填字段、JSON
-  可解析性、图片路径映射和失败清单；抽样检查 OCR、计数、否定所需字段。
-  \item \textbf{200 图集成：}先在固定子集运行 full 三路建库和 M4--M7 端到端流程，记录
-  丢失标注、空字段、索引维度和回退率，确认无系统性错误后再扩容。
-  \item \textbf{全量索引：}冻结配置与模型指纹，分别构建图像、结构化文本和 BM25 索引，
-  保存耗时、峰值内存、失败样本及可复现命令。
-  \item \textbf{人工 qrels 验收：}团队共同审核 query、相关等级与数据切分，避免由系统
-  自身标注生成查询造成循环论证；检查评分者一致性和困难查询覆盖。
-  \item \textbf{A5--A7 正式实验：}在相同候选池比较单路/RRF/weighted、无重排/
-  pointwise/listwise、Chinese-CLIP/jina-clip-v2，报告分类指标、延迟和失败率。
-  \item \textbf{分析与报告冻结：}复查失败案例、M7 引用正确性和故事人工评分；团队确认
-  数字、图表、限制与贡献归属后冻结最终报告和演示。
+  \item 验收 Qwen3.5 canonical 2362 条输入；7 个 Train ID 缺失被如实保留，不由程序
+  合成，也不回退到其他模型。
+  \item 导入 Train 1993、Val 369 条统一标注，并构建两个 split 的 image/text/BM25
+  三路索引；manifest 保存记录数、维度、模型指纹、配置与标注哈希。
+  \item 冻结 M5→M6 v1.0 接口，验证 12 条查询、每条 20 个唯一候选；完成 listwise
+  资源测试并显式披露 8/12 部分降级。
+  \item 完成三个 M7 故事与一个真实缺图生成，验证故事顺序、失败保留和 AI provenance。
+  \item 审核 100 条五类查询，生成 50 查询多系统候选池，补全 A5/A6 正式结果代码。
 \end{enumerate}
 
-在此之前，mock、image-only、20 图融合对照和 64 图编码器实验继续只作为工程证据，
-不会被换算成正式质量结论。
+当前剩余门禁只有候选级人工判断及其下游结果冻结：必须把候选池中每张非来源图片明确
+标为 0/1/2，要求 50 个 \texttt{graded\_query\_ids} 完整、保留零等级，再运行 A5 五变体
+和 A6 baseline/pointwise/listwise。随后才能把正式 MRR、mAP、nDCG、失败率和分类分析
+写入报告。第二审核者尚未实际签字时，也必须保留单审核者限制。
 
 \section{个人总结与贡献审计}
 
 我的主要贡献不是重写队友已有的 M3--M5，而是把基线扩展成在无标注期可开发、在 8GB
 本机可联调、出现生成式模型异常时可降级、标注到达后可切换到正式实验的系统。我完成了
-算法对照入口、M6/M7 生成式链路、M4 多后端、A7 第二编码器，以及相应测试、故障定位与
-阶段文档。当前最重要的边界是：工程链路基本具备，正式质量结论仍须团队数据与人工评价。
+选择性迁移、接口对照、M6/M7 生成式链路、M4 多后端、A7 第二编码器、正式评测工具、
+部署与 Demo 文档，以及相应测试和故障定位。当前最重要的边界是：全量链路已经具备，
+正式 A5/A6 质量结论仍须完成 50 查询候选级人工判断。
 
 \begin{table}[htbp]
 \centering
@@ -254,10 +295,10 @@ Qwen3-VL-2B 故事链及 SD 1.5 FP16 缺图生成也在本机串行运行，证�
 \toprule
 队友已有 & 本人新增 & 共同依赖/后续 \\
 \midrule
-M3--M5 三路索引、搜索服务、RRF 基线 & 无标注模式、任意目录入口、M5 weighted 对照 & 冻结的 M1 全量标注 \\
-候选检索和服务边界 & M6 Top-20 listwise、校验与 8GB 测试 & 人工 query 与 qrels \\
-项目 UI 与输出接口起点 & M7 自动故事、SD 补图、AI 标识及页面联调 & 故事人工评价和最终演示 \\
-Chinese-CLIP 图像塔起点 & M4 三后端；A7 Jina 适配、RoPE/NaN 修复 & A5--A7 正式质量实验与团队报告 \\
+M3--M5 三路索引、搜索服务、RRF 基线 & Qwen3.5 选择性迁移、全量索引验收、weighted 对照 & M1 标注生产仍归属队友 \\
+候选检索和服务边界 & M6 Top-20 listwise、接口校验、8GB 与指标接线 & 50 查询候选级 qrels \\
+项目 UI 与输出接口起点 & M7 三故事、SD 补图、AI 标识及页面联调 & 故事人工评价和最终录屏 \\
+Chinese-CLIP 图像塔起点 & M4 三后端；A7 Jina；正式评测与部署 & A5/A6 冻结表与团队报告 \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -269,7 +310,7 @@ Chinese-CLIP 图像塔起点 & M4 三后端；A7 Jina 适配、RoPE/NaN 修复 &
 \section{提交与证据映射}
 
 \small
-\begin{longtable}{p{2.2cm}p{10.8cm}}
+\begin{longtable}{p{3.4cm}p{9.6cm}}
 \toprule
 提交 & 对应证据 \\
 \midrule
@@ -287,6 +328,18 @@ Chinese-CLIP 图像塔起点 & M4 三后端；A7 Jina 适配、RoPE/NaN 修复 &
 \texttt{0c54bf8} & 扩展 M7 自动故事、缺口检测、补图和 AI 生成标识。 \\
 \texttt{223f3e0} & 补全 M4 三后端、回退与结构化输出验证。 \\
 \texttt{a8f3a05} & 扩展 A7 jina-clip-v2、修复 RoPE/NaN 并完成资源对比。 \\
+\texttt{bfc2c1c} & 迁移队友 Qwen3.5 adapter 与只读导入 CLI，不声明标注生产归属。 \\
+\texttt{fc4e7c6} & 补全 Train/Val 全量三路索引一致性和 manifest 验证。 \\
+\texttt{e7f40da--557216b} & 规定并验证 M5→M6 接口，补全离线 listwise 与资源指标。 \\
+\texttt{94250c1,82478ca,}\newline\texttt{9451b78} & 补全 canonical M7 桥接、三个故事和正式运行记录。 \\
+\texttt{c64a958} & 修复正式 qrels 的零等级保留。 \\
+\texttt{6deb435} & 整理两批已审核查询为正式 100 条集合。 \\
+\texttt{7401f86} & 构建五类均衡、五个 A5 变体的 50 查询候选池。 \\
+\texttt{d5422a1} & 补全候选级 0/1/2 图片审核页。 \\
+\texttt{ded5d2a} & 补全 qrels 冻结与完整性门禁。 \\
+\texttt{a784a5e} & 补全 A5 五变体正式输出与来源哈希。 \\
+\texttt{6b2401a} & 补全 A6 固定候选质量接口并完成 q001 smoke。 \\
+\texttt{c9873fb,260fb4c} & 补全可复现 GPU 部署和最终 Demo 手册。 \\
 \bottomrule
 \end{longtable}
 
