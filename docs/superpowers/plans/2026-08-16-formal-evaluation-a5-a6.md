@@ -90,7 +90,7 @@ env -u ALL_PROXY -u all_proxy PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   conda run -n vlm-course python -m pytest -q
 ```
 
-Expected: focused tests pass and the full count is at least 216 passed.
+Expected: focused tests pass and the full count is at least 215 passed.
 
 - [ ] **Step 6: Commit**
 

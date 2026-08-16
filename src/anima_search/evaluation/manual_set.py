@@ -110,8 +110,6 @@ def parse_judgments(
             raise ValueError(f"duplicate relevance image ID: {image_id}")
         seen.add(image_id)
         grade = int(match.group("grade"))
-        if grade == 0:
-            continue
         rows.append(
             {
                 "query_id": query_id,
@@ -220,7 +218,7 @@ def validate_manual_set(
         relevance_by_query.setdefault(query_id, []).append(row)
         if query_id not in query_ids:
             errors.append(f"relevance references unknown query: {query_id}")
-        if grade not in {1, 2}:
+        if grade not in {0, 1, 2}:
             errors.append(f"{query_id}/{image_id} has invalid relevance {grade}")
         if valid_image_ids is not None and image_id not in valid_image_ids:
             errors.append(f"{query_id} references unknown image: {image_id}")

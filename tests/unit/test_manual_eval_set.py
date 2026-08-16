@@ -38,7 +38,7 @@ def test_manual_sampling_is_deterministic_and_blank():
     assert all(row["text"] == "" and row["reviewed"] is False for row in first)
 
 
-def test_parse_judgments_rejects_duplicates_and_ignores_zero():
+def test_parse_judgments_preserves_zero_and_rejects_duplicates():
     rows = parse_judgments(
         "val-1:2\nval-2:0\nval-3：1",
         query_id="q001",
@@ -46,6 +46,7 @@ def test_parse_judgments_rejects_duplicates_and_ignores_zero():
     )
     assert [(row["image_id"], row["relevance"]) for row in rows] == [
         ("val-1", 2),
+        ("val-2", 0),
         ("val-3", 1),
     ]
     with pytest.raises(ValueError, match="duplicate"):
@@ -90,3 +91,21 @@ def test_incomplete_manual_set_is_refused():
     tasks = sample_manual_tasks(manifest(1), count=1)
     with pytest.raises(ValueError, match="not reviewed"):
         validate_manual_set(tasks, [], expected_count=1)
+
+
+def test_validate_manual_set_accepts_explicit_zero_with_positive_source():
+    tasks = [{
+        "query_id": "q001", "text": "城市", "category": "simple",
+        "source_image_id": "val-1", "source_relative_path": "../Val/1.jpg",
+        "reviewed": True, "annotator": "human-a", "note": "",
+    }]
+    rows = [
+        {"query_id": "q001", "image_id": "val-1", "relevance": 2,
+         "annotator": "human-a", "note": ""},
+        {"query_id": "q001", "image_id": "val-2", "relevance": 0,
+         "annotator": "human-a", "note": ""},
+    ]
+
+    summary = validate_manual_set(tasks, rows, expected_count=1)
+
+    assert summary["relevance_row_count"] == 2
