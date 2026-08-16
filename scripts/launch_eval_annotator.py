@@ -10,12 +10,41 @@ import gradio as gr
 
 from anima_search.config import load_config, resolve_path
 from anima_search.evaluation.manual_set import (
-    QUERY_CATEGORIES,
     format_judgments,
     load_relevance_rows,
     load_tasks,
     save_review,
 )
+
+
+CATEGORY_CHOICES = [
+    ("简单查询", "simple"),
+    ("组合查询", "compositional"),
+    ("否定查询", "negative"),
+    ("数量查询", "count"),
+    ("文字识别查询", "ocr"),
+]
+DEFAULT_ANNOTATOR = "张添翼"
+
+
+def _task_form_values(
+    task: dict[str, object],
+    rows: list[dict[str, object]],
+    project_root: Path,
+) -> tuple[object, ...]:
+    image_path = project_root / str(task["source_relative_path"])
+    query_id = str(task["query_id"])
+    return (
+        str(image_path),
+        query_id,
+        str(task["source_image_id"]),
+        str(task.get("text", "")),
+        str(task.get("category", "")) or None,
+        str(task.get("annotator", "")).strip() or DEFAULT_ANNOTATOR,
+        str(task.get("note", "")),
+        format_judgments(rows, query_id),
+        bool(task.get("reviewed", False)),
+    )
 
 
 def build_app(
@@ -28,19 +57,11 @@ def build_app(
         rows = load_relevance_rows(relevance_path)
         index = max(0, min(len(tasks) - 1, int(position) - 1))
         task = tasks[index]
-        image_path = project_root / str(task["source_relative_path"])
         completed = sum(bool(row.get("reviewed")) for row in tasks)
         progress = f"**进度：{completed}/{len(tasks)} 已审核**"
         return (
             index + 1,
-            str(image_path),
-            str(task["query_id"]),
-            str(task.get("text", "")),
-            str(task.get("category", "")) or None,
-            str(task.get("annotator", "")),
-            str(task.get("note", "")),
-            format_judgments(rows, str(task["query_id"])),
-            bool(task.get("reviewed", False)),
+            *_task_form_values(task, rows, project_root),
             progress,
             "",
         )
@@ -68,8 +89,8 @@ def build_app(
                 reviewed=reviewed,
             )
         except Exception as exc:
-            return f"保存失败：{type(exc).__name__}: {exc}", load_position(position)[9]
-        progress = load_position(position)[9]
+            return f"保存失败：{type(exc).__name__}: {exc}", load_position(position)[-2]
+        progress = load_position(position)[-2]
         return f"已保存 {task['query_id']}", progress
 
     def previous(position: int):
@@ -94,12 +115,13 @@ def build_app(
             source_image = gr.Image(label="查询来源原图", height=520, type="filepath")
             with gr.Column():
                 query_id = gr.Textbox(label="Query ID", interactive=False)
+                source_image_id = gr.Textbox(label="来源图 ID", interactive=False)
                 query_text = gr.Textbox(
                     label="人工查询",
                     lines=3,
                     placeholder="直接看图写自然查询，不要复制模型描述。",
                 )
-                category = gr.Dropdown(list(QUERY_CATEGORIES), label="查询类别")
+                category = gr.Dropdown(CATEGORY_CHOICES, label="查询类别")
                 annotator = gr.Textbox(label="标注者")
                 note = gr.Textbox(label="备注", lines=2)
         judgments = gr.Textbox(
@@ -115,6 +137,7 @@ def build_app(
             position,
             source_image,
             query_id,
+            source_image_id,
             query_text,
             category,
             annotator,
