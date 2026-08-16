@@ -39,6 +39,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--validation-report", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--index-manifest", type=Path, required=True)
+    parser.add_argument("--m5-config-snapshot", type=Path, required=True)
     parser.add_argument("--train-dir", type=Path, required=True)
     parser.add_argument("--val-dir", type=Path, required=True)
     parser.add_argument(
@@ -120,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
             "input": args.input,
             "config": args.config,
             "index_manifest": args.index_manifest,
+            "m5_config_snapshot": args.m5_config_snapshot,
             "train_dir": args.train_dir,
             "val_dir": args.val_dir,
         },
@@ -139,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         train_dir=_data_path(project_root, args.train_dir),
         val_dir=_data_path(project_root, args.val_dir),
         index_manifest_path=args.index_manifest,
+        config_snapshot_path=args.m5_config_snapshot,
     )
     args.validation_report.parent.mkdir(parents=True, exist_ok=True)
     args.validation_report.write_text(

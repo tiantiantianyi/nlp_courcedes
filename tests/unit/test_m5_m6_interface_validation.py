@@ -110,17 +110,32 @@ def _fixture_paths(
                 "annotation_version": "qwen35-canonical-v1.3",
                 "active_branches": ["image", "text"],
                 "branches": {},
-                "config_digest": "b" * 64,
+                "config_digest": "c" * 64,
             }
         ),
         encoding="utf-8",
     )
 
+    config_snapshot_path = project_root / "m5_retrieval_config.snapshot.json"
+    config_snapshot_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "m5-retrieval-config-v1",
+                "split": "val",
+                "retrieval": {"fusion_method": "rrf"},
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_snapshot_hash = sha256_file(config_snapshot_path)
     rows = payloads or [_batch()]
     manifest_hash = sha256_file(manifest_path)
     for row in rows:
         if not row["index_manifest_sha256"]:
             row["index_manifest_sha256"] = manifest_hash
+        row["config_sha256"] = config_snapshot_hash
     input_path = project_root / "m5.jsonl"
     input_path.write_text(
         "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
@@ -132,6 +147,7 @@ def _fixture_paths(
         "train_dir": train_dir,
         "val_dir": val_dir,
         "index_manifest_path": manifest_path,
+        "config_snapshot_path": config_snapshot_path,
         "annotation_path": annotations_path,
     }
 
@@ -148,6 +164,20 @@ def test_valid_file_returns_batches_and_zero_issues(tmp_path: Path) -> None:
     assert report.candidate_count == 20
     assert report.issues == []
     assert len(batches) == 1
+
+
+def test_validator_rejects_tampered_m5_config_snapshot(tmp_path: Path) -> None:
+    paths = _fixture_paths(tmp_path)
+    paths.pop("annotation_path")
+    paths["config_snapshot_path"].write_text(
+        '{"schema_version":"tampered"}\n',
+        encoding="utf-8",
+    )
+
+    batches, report = validate_interface_file(**paths)
+
+    assert batches == []
+    assert "E_MANIFEST_MISMATCH" in {issue.code for issue in report.issues}
 
 
 def test_validator_collects_duplicate_query_path_and_branch_errors(

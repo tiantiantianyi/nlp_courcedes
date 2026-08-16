@@ -53,6 +53,11 @@ def _paths(tmp_path: Path) -> dict[str, Path]:
     )
     input_path = project_root / "m5.jsonl"
     input_path.write_text('{"untouched": true}\n', encoding="utf-8")
+    snapshot_path = project_root / "m5_retrieval_config.snapshot.json"
+    snapshot_path.write_text(
+        '{"schema_version":"m5-retrieval-config-v1"}\n',
+        encoding="utf-8",
+    )
     return {
         "project_root": project_root,
         "config": config_path,
@@ -60,6 +65,7 @@ def _paths(tmp_path: Path) -> dict[str, Path]:
         "output": project_root / "m6.jsonl",
         "report": project_root / "validation.json",
         "manifest": project_root / "manifest.json",
+        "snapshot": snapshot_path,
         "train": tmp_path / "Train",
         "val": tmp_path / "Val",
     }
@@ -77,6 +83,8 @@ def _argv(paths: dict[str, Path]) -> list[str]:
         str(paths["config"]),
         "--index-manifest",
         str(paths["manifest"]),
+        "--m5-config-snapshot",
+        str(paths["snapshot"]),
         "--train-dir",
         str(paths["train"]),
         "--val-dir",
@@ -98,7 +106,10 @@ def test_cli_refuses_to_overwrite_m5_input(
         main(_argv(paths))
 
 
-@pytest.mark.parametrize("protected_key", ["input", "config", "manifest"])
+@pytest.mark.parametrize(
+    "protected_key",
+    ["input", "config", "manifest", "snapshot"],
+)
 def test_cli_refuses_output_aliasing_any_read_only_input(
     tmp_path: Path,
     protected_key: str,

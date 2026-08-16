@@ -202,6 +202,7 @@ def _check_batch_against_manifest(
     *,
     line_number: int,
     manifest_hash: str,
+    config_snapshot_hash: str,
     manifest: dict[str, Any],
     catalog: dict[str, str],
     project_root: Path,
@@ -233,9 +234,11 @@ def _check_batch_against_manifest(
             "E_MANIFEST_MISMATCH",
             "annotation_version does not match index manifest",
         )
-    config_digest = manifest.get("config_digest")
-    if config_digest and config_digest != batch.config_sha256:
-        add("E_MANIFEST_MISMATCH", "config_sha256 does not match config_digest")
+    if batch.config_sha256 != config_snapshot_hash:
+        add(
+            "E_MANIFEST_MISMATCH",
+            "config_sha256 does not match the supplied M5 retrieval snapshot",
+        )
 
     split_root = val_dir.resolve() if batch.split == "val" else train_dir.resolve()
     for candidate in batch.candidates:
@@ -287,6 +290,7 @@ def validate_interface_file(
     train_dir: Path,
     val_dir: Path,
     index_manifest_path: Path,
+    config_snapshot_path: Path,
 ) -> tuple[list[M5QueryBatch], InterfaceValidationReport]:
     issues: list[InterfaceIssue] = []
     parsed_batches: list[tuple[int, M5QueryBatch]] = []
@@ -301,6 +305,19 @@ def validate_interface_file(
         manifest_hash = sha256_file(index_manifest_path)
     except OSError:
         manifest_hash = ""
+    try:
+        config_snapshot_hash = sha256_file(config_snapshot_path)
+    except OSError as exc:
+        config_snapshot_hash = ""
+        issues.append(
+            InterfaceIssue(
+                code="E_MANIFEST_MISMATCH",
+                message=(
+                    "cannot read M5 retrieval snapshot: "
+                    f"{type(exc).__name__}: {exc}"
+                ),
+            )
+        )
 
     for line_number, raw_line in enumerate(
         input_path.read_text(encoding="utf-8").splitlines(),
@@ -370,6 +387,7 @@ def validate_interface_file(
             batch,
             line_number=line_number,
             manifest_hash=manifest_hash,
+            config_snapshot_hash=config_snapshot_hash,
             manifest=manifest,
             catalog=catalog,
             project_root=project_root.resolve(),

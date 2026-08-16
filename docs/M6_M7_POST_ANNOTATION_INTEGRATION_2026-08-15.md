@@ -123,6 +123,7 @@ m5-to-m6-v1.0 正式交付，因此没有将其静默转换或冒充正式输入
 ~~~bash
 conda run -n vlm-course python scripts/validate_m5_m6_interface.py \
   --input artifacts/evaluation/m5_to_m6_candidates.jsonl \
+  --m5-config-snapshot artifacts/evaluation/m5_retrieval_config.snapshot.json \
   --project-root . \
   --train-dir ../Train \
   --val-dir ../Val \
@@ -137,6 +138,7 @@ conda run -n vlm-course python scripts/validate_m5_m6_interface.py \
 ~~~bash
 conda run -n vlm-course python scripts/run_m6_from_m5.py \
   --input artifacts/evaluation/m5_to_m6_candidates.jsonl \
+  --m5-config-snapshot artifacts/evaluation/m5_retrieval_config.snapshot.json \
   --output artifacts/evaluation/m6_dry_run.jsonl \
   --validation-report artifacts/evaluation/m5_to_m6_validation.json \
   --config configs/benchmark_8gb.yaml \
@@ -152,6 +154,7 @@ dry-run 只验证读取、Top-20 和输出契约，所有结果必须明确标�
 ~~~bash
 conda run -n vlm-course python scripts/run_m6_from_m5.py \
   --input artifacts/evaluation/m5_to_m6_candidates.jsonl \
+  --m5-config-snapshot artifacts/evaluation/m5_retrieval_config.snapshot.json \
   --output artifacts/evaluation/m6_reranked_results.jsonl \
   --validation-report artifacts/evaluation/m5_to_m6_validation.json \
   --config configs/benchmark_8gb.yaml \

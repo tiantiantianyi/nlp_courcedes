@@ -61,9 +61,14 @@ def _delivery(tmp_path: Path, *, candidate_count: int = 20) -> dict[str, Path]:
                 "annotation_path": str(annotations_path),
                 "annotation_sha256": sha256_file(annotations_path),
                 "annotation_version": "qwen35-canonical-v1.3",
-                "config_digest": "b" * 64,
+                "config_digest": "c" * 64,
             }
         ),
+        encoding="utf-8",
+    )
+    snapshot_path = project_root / "m5_retrieval_config.snapshot.json"
+    snapshot_path.write_text(
+        '{"schema_version":"m5-retrieval-config-v1"}\n',
         encoding="utf-8",
     )
     payload = {
@@ -76,7 +81,7 @@ def _delivery(tmp_path: Path, *, candidate_count: int = 20) -> dict[str, Path]:
         "top_k": 20,
         "annotation_version": "qwen35-canonical-v1.3",
         "index_manifest_sha256": sha256_file(manifest_path),
-        "config_sha256": "b" * 64,
+        "config_sha256": sha256_file(snapshot_path),
         "candidates": candidates[:candidate_count],
     }
     input_path = project_root / "delivery.jsonl"
@@ -87,6 +92,7 @@ def _delivery(tmp_path: Path, *, candidate_count: int = 20) -> dict[str, Path]:
         "train_dir": train_dir,
         "val_dir": val_dir,
         "manifest": manifest_path,
+        "snapshot": snapshot_path,
     }
 
 
@@ -105,6 +111,8 @@ def _run(paths: dict[str, Path], report_path: Path) -> subprocess.CompletedProce
             str(paths["val_dir"]),
             "--index-manifest",
             str(paths["manifest"]),
+            "--m5-config-snapshot",
+            str(paths["snapshot"]),
             "--report",
             str(report_path),
         ],
@@ -141,7 +149,7 @@ def test_cli_writes_complete_invalid_report_and_returns_one(
     }
 
 
-@pytest.mark.parametrize("protected_key", ["input", "manifest"])
+@pytest.mark.parametrize("protected_key", ["input", "manifest", "snapshot"])
 def test_cli_refuses_report_aliasing_read_only_input(
     tmp_path: Path,
     protected_key: str,

@@ -211,6 +211,7 @@ M6 侧校验器实现后，使用以下命令验收队友交付：
 ```bash
 conda run -n vlm-course python scripts/validate_m5_m6_interface.py \
   --input artifacts/evaluation/m5_to_m6_candidates.jsonl \
+  --m5-config-snapshot artifacts/evaluation/m5_retrieval_config.snapshot.json \
   --project-root . \
   --train-dir ../Train \
   --val-dir ../Val \
