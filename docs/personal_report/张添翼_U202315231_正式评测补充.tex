@@ -1,0 +1,71 @@
+\documentclass[UTF8,11pt,a4paper]{ctexart}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{booktabs,tabularx,array,xcolor,enumitem,microtype}
+\usepackage[hidelinks]{hyperref}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.3em}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\title{视觉语言相册检索项目\\正式评测补充报告}
+\author{张添翼\\学号：U202315231}
+\date{2026 年 8 月 17 日}
+\begin{document}
+\maketitle
+\begin{abstract}
+本补充报告更新个人报告提交后完成的正式候选级相关性标注、A5 混合召回和 A6 视觉重排结果。候选级 qrels 已通过完整性校验；结果显示 weighted 三路融合在当前 qrels 上优于其他 A5 方法，而 VLM pointwise/listwise 重排没有超过 M5 baseline 的排序质量。listwise 的主要收益是减少模型调用并获得约 4.50 倍于 pointwise 的总时延加速。本文不将上述结果泛化到未公开测试集，并保留单审核者限制。
+\end{abstract}
+
+\section{数据与贡献边界}
+候选级审核覆盖 50 条五类均衡查询和 540 个候选判断，等级分布为 0=204、1=202、2=184，标注者为张添翼，qrels 校验结果为 \texttt{valid=true}。100 条查询的原始来源图正例集合和 Qwen3.5 canonical 标注生产仍属于队友/团队共同前置工作；张添翼负责候选审核工具、qrels 冻结门禁、正式 A5/A6 运行、结果分析和报告补充，不将队友原始 M3--M5 基线写成个人成果。
+
+\section{A5 混合召回}
+\begin{table}[htbp]
+\centering\small
+\caption{A5 正式结果：总体为 100 条查询，graded nDCG@10 为 50 条候选池查询}
+\begin{tabular}{lrrrrrr}
+\toprule
+方法 & Recall@5 & Recall@10 & MRR & mAP & nDCG@10 & graded nDCG@10\\
+\midrule
+CLIP-only & 0.720 & 0.783 & 0.858 & 0.704 & 0.784 & 0.795\\
+text-only & 0.721 & 0.774 & 0.840 & 0.677 & 0.762 & 0.729\\
+BM25-only & 0.633 & 0.691 & 0.816 & 0.623 & 0.711 & 0.614\\
+RRF 三路 & 0.733 & 0.804 & 0.858 & 0.707 & 0.788 & 0.756\\
+weighted 三路 & \textbf{0.754} & \textbf{0.842} & \textbf{0.870} & \textbf{0.744} & \textbf{0.820} & \textbf{0.817}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+在本次冻结 qrels 和固定配置下，weighted 三路融合在所有主要指标上优于 RRF；这只能作为当前验证集上的实验观察，不能直接推断未公开测试集结果。
+
+\section{A6 固定候选池重排}
+正式 A6 直接使用人工审核过的候选池，允许每条查询有 1--20 张候选，避免因去重后不足 20 张而丢弃 q016、q027、q038 和 q091 等查询。
+
+\begin{table}[htbp]
+\centering\small
+\caption{A6 正式结果：50 条查询、540 个候选}
+\begin{tabular}{lrrrrl}
+\toprule
+方法 & MRR & nDCG@10 & 失败数 & 部分降级 & 资源摘要\\
+\midrule
+M5 baseline & 1.000 & 0.953 & -- & -- & 固定候选原序\\
+pointwise & 0.987 & 0.923 & 2/540 & -- & 2.395 s/候选，4.06 GiB\\
+listwise & 0.982 & 0.903 & 0/50 & 13/50 & 5.744 s/查询，4.10 GiB\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+pointwise 总耗时为 1293.217 秒，listwise 总耗时为 287.192 秒，listwise 相对 pointwise 加速 4.503 倍。pointwise 的两次失败均为模型没有输出合法 JSON；listwise 没有硬失败，但 13 条查询出现重复或遗漏 ID 后的部分降级。
+
+\section{结论与局限}
+本次正式实验不能支持“VLM 重排提升排序质量”的表述：在当前人工 qrels 上，M5 baseline 的 MRR 和 nDCG@10 反而高于 pointwise/listwise。更准确的结论是：listwise 将昂贵的逐图调用压缩为每查询一次，显著降低了总时延，但仍需改进 ID 输出约束和部分降级率。qrels 只有一名审核者，候选池来自五种召回方法的去重并集，且没有覆盖完整验证集的所有图片；这些限制应在课程报告中明确写出。
+
+\section*{可复现证据}
+\small
+\begin{itemize}
+\item \texttt{artifacts/evaluation/formal/qrels\_validation.json}
+\item \texttt{artifacts/evaluation/formal/a5/a5\_formal\_results.json}
+\item \texttt{artifacts/evaluation/formal/a6/formal\_candidate\_pool.json}
+\item \texttt{artifacts/evaluation/formal/a6/formal\_candidate\_pool\_quality.json}
+\item \texttt{scripts/benchmark\_formal\_candidate\_pool.py}
+\end{itemize}
+\end{document}
