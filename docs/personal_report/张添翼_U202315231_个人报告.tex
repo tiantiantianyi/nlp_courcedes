@@ -33,8 +33,9 @@ M4 查询理解后端以及 A7 图像编码器适配。全部本地联调在 RTX
 开展，重点考察功能契约、异常降级、显存与时延。队友生产的 Qwen3.5 canonical 标注
 已经完成只读验收，我在该交付上完成 adapter 迁移、Train 1993/Val 369 全量三路索引
 联调、M5→M6 接口和三个 M7 故事；另整理了 100 条已审核查询及五类均衡的 50 查询
-候选池。候选级相关性判断（relevance judgments）尚未冻结，因此本文只报告工程与
-单查询指标链路 smoke，不据来源图正例声明正式 Recall、MRR、mAP 或 nDCG 提升。
+候选池。候选级 0/1/2 相关性判断已经开始写入审核文件，但完整的 50-query qrels
+尚未冻结，因此本文只报告工程与单查询指标链路 smoke，不据来源图正例声明正式
+Recall、MRR、mAP 或 nDCG 提升。
 
 \noindent\textbf{关键词：}视觉语言模型；多模态检索；重排序；视觉故事；本地部署
 \end{abstract}
@@ -131,8 +132,11 @@ image ID，并实现输出白名单、编号映射、去重、遗漏项按原序
 故事与提示词生成、Stable Diffusion 1.5 FP16 补图，以及
 \texttt{source=generated}、\texttt{ai\_generated=true} 双重标识。进入扩散模型前卸载
 Qwen，生成失败时保留原故事并显示原因。交互页面基于 Gradio\citep{gradio}。
-\textbf{验证：}从 12 查询 M6 输出中选择三组、每组 5 张图片完成真实故事；其中 q03
-检测到一个转场缺口并生成 512$\times$512 PNG，记录同时具有
+\textbf{验证：}从正式 12-query M6 输出中选择 \texttt{m6-q01}、\texttt{m6-q03} 和
+\texttt{m6-q09} 三组、每组 5 张图片完成真实故事。三个输出均保持
+\texttt{m7-story-v1.0} 的 ordered/selected ID 一致性；\texttt{m6-q01} 和
+\texttt{m6-q09} 的缺口保留为可审计的 missing 占位，\texttt{m6-q03} 检测到一个
+转场缺口并成功生成 512$\times$512 PNG，生成记录同时具有
 \texttt{source=generated} 与 \texttt{ai\_generated=true}。\textbf{限制：}SD 1.5
 是适合本机联调的阶段模型，并非计划首选的
 SDXL/FLUX；现有结果不代表故事连贯性或风格一致性得分。
@@ -166,8 +170,9 @@ NaN，不能直接写入 FAISS。\textbf{本人工作：}我增加编码器配�
 simple/compositional/negative/count/OCR = 28/26/14/14/18；再从五类各选 10 条，汇集
 CLIP-only、text-only、BM25-only、三路 RRF 和 weighted 的 Top-5，形成平均 10.8 个
 候选的 50 查询池。我补全候选级 0/1/2 审核页、零等级保留、qrels 冻结门禁、A5 五变体
-与 A6 固定候选质量接口。\textbf{当前边界：}100 条查询已经审核，但 50 查询候选池中
-非来源候选仍需逐图判断；正式结果文件不存在时，报告不生成 A5/A6 最终表。
+与 A6 固定候选质量接口。\textbf{当前边界：}100 条查询已经审核，候选级审核文件已开始
+产生逐图 0/1/2 判断，但 50-query 候选池尚未全部完成，且 qrels 完整性校验尚未通过；
+在此门禁解除前，报告不生成 A5/A6 最终表。
 
 \section{本地实验与结果}
 
@@ -274,8 +279,9 @@ Qwen3-VL-2B 故事链及 SD 1.5 FP16 缺图生成也在本机串行运行，证�
   \item 审核 100 条五类查询，生成 50 查询多系统候选池，补全 A5/A6 正式结果代码。
 \end{enumerate}
 
-当前剩余门禁只有候选级人工判断及其下游结果冻结：必须把候选池中每张非来源图片明确
-标为 0/1/2，要求 50 个 \texttt{graded\_query\_ids} 完整、保留零等级，再运行 A5 五变体
+当前剩余门禁是候选级人工判断及其下游结果冻结：候选审核已经开始，但必须把候选池中
+每张图片（包括来源图）明确标为 0/1/2，要求 50 个 \texttt{graded\_query\_ids} 完整、
+保留零等级，再运行 A5 五变体
 和 A6 baseline/pointwise/listwise。随后才能把正式 MRR、mAP、nDCG、失败率和分类分析
 写入报告。第二审核者尚未实际签字时，也必须保留单审核者限制。
 
