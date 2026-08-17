@@ -22,8 +22,9 @@ APP_CSS = """
     radial-gradient(circle at 92% 8%, rgba(59, 130, 246, .11), transparent 28rem),
     #f7f8fc !important;
   color: var(--anima-ink);
+  font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
 }
-.anima-shell { max-width: 1440px; margin: 0 auto; }
+.anima-shell { max-width: 1440px; margin: 0 auto; padding-bottom: 2rem; }
 .anima-hero {
   position: relative;
   overflow: hidden;
@@ -70,6 +71,64 @@ APP_CSS = """
   background: var(--anima-card) !important;
   box-shadow: 0 10px 35px rgba(34, 46, 80, .06) !important;
 }
+.anima-panel > .gr-box, .anima-panel > .block {
+  border-color: transparent !important;
+}
+.m7-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: .9rem;
+  margin: .15rem 0 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #e8e9fb;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fbfbff 0%, #f5f3ff 100%);
+}
+.m7-intro-icon {
+  display: grid;
+  flex: 0 0 2.4rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-items: center;
+  border-radius: 13px;
+  color: white;
+  background: linear-gradient(145deg, #6366f1, #8b5cf6);
+  box-shadow: 0 7px 16px rgba(99, 102, 241, .25);
+  font-size: 1.15rem;
+}
+.m7-intro h3 { margin: 0 0 .28rem; color: var(--anima-ink); font-size: 1.08rem; }
+.m7-intro p { margin: 0; color: #596275; font-size: .88rem; line-height: 1.65; }
+.m7-legend { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .62rem; }
+.m7-legend span {
+  padding: .22rem .52rem;
+  border-radius: 999px;
+  color: #596275;
+  background: rgba(255,255,255,.7);
+  border: 1px solid #e4e5f5;
+  font-size: .72rem;
+  font-weight: 700;
+}
+.m7-legend .legend-ai { color: #7e22ce; background: #f3e8ff; border-color: #e9d5ff; }
+.m7-legend .legend-gap { color: #6d28d9; background: #ede9fe; border-color: #ddd6fe; }
+.story-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: .95rem 0 1rem;
+}
+.story-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .34rem .62rem;
+  border-radius: 10px;
+  color: #596275;
+  background: #f8f9fd;
+  border: 1px solid #eaecf5;
+  font-size: .76rem;
+  font-weight: 650;
+}
+.story-summary-item strong { color: var(--anima-ink); font-size: .88rem; }
 .anima-gallery {
   border: 0 !important;
   border-radius: 20px !important;
@@ -111,6 +170,12 @@ APP_CSS = """
   background: white;
   border: 1px solid #eaecf5;
   box-shadow: 0 7px 20px rgba(30, 41, 59, .055);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.story-node:hover, .story-gap-card:hover {
+  transform: translateY(-2px);
+  border-color: #cfd2ff;
+  box-shadow: 0 12px 26px rgba(30, 41, 59, .09);
 }
 .story-node:before, .story-gap-card:before {
   content: "";
@@ -131,6 +196,21 @@ APP_CSS = """
 .story-node h3, .story-gap-card h4 { margin: .35rem 0 .4rem; color: var(--anima-ink); }
 .story-node p, .story-gap-card p { margin: 0; color: #475467; line-height: 1.65; }
 .story-meta { color: #7c8294; font-size: .74rem; font-weight: 650; letter-spacing: .02em; }
+.story-card-head { display: flex; align-items: center; justify-content: space-between; gap: .7rem; flex-wrap: wrap; }
+.story-position {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  margin-right: .42rem;
+  border-radius: 50%;
+  color: #4338ca;
+  background: #eef2ff;
+  font-size: .7rem;
+  font-weight: 850;
+}
+.story-ref { color: #8a91a3; font-size: .73rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .story-badge {
   display: inline-flex;
   align-items: center;
@@ -143,6 +223,10 @@ APP_CSS = """
 }
 .story-badge.ai { background: #f3e8ff; color: #7e22ce; }
 .story-badge.failed { background: #fef2f2; color: #b42318; }
+.story-badge.missing { background: #ede9fe; color: #6d28d9; }
+.story-gap-card .story-meta { color: #7c3aed; }
+.story-gap-card h4 { display: flex; align-items: center; gap: .4rem; }
+.story-gap-card h4:before { content: "↔"; color: #8b5cf6; font-size: 1rem; }
 .story-disclaimer {
   margin-top: .9rem;
   padding: .8rem 1rem;
@@ -157,6 +241,9 @@ footer { display: none !important; }
 @media (max-width: 760px) {
   .anima-hero { padding: 1.7rem 1.35rem; border-radius: 22px; }
   .anima-hero h1 { font-size: 2.25rem; }
+  .m7-intro { padding: .85rem .9rem; }
+  .story-timeline { padding-left: 1.2rem; }
+  .story-node:before, .story-gap-card:before { left: -1.12rem; }
 }
 """
 
@@ -167,6 +254,75 @@ EMPTY_STORY_HTML = """
   搜索并选择 3–8 张图片，系统将自动排序、识别叙事断点，并按需生成过渡图。</div>
 </div>
 """
+
+
+def render_story_html(story) -> str:
+    """Render an auditable M7 timeline without changing the story payload."""
+    gap_by_after: dict[str, list[object]] = {}
+    for gap in story.gaps:
+        gap_by_after.setdefault(gap.after_image_id, []).append(gap)
+    generated_count = sum(gap.status == "generated" for gap in story.gaps)
+    failed_count = sum(gap.status == "failed" for gap in story.gaps)
+    pending_count = len(story.gaps) - generated_count - failed_count
+    nodes = []
+    for position, section in enumerate(story.sections, start=1):
+        source_badge = (
+            '<span class="story-badge ai" title="该画面由生成模型创建">✨ AI 生成</span>'
+            if section.ai_generated
+            else '<span class="story-badge" title="来自检索结果的真实来源图">🖼 原始图片</span>'
+        )
+        nodes.append(
+            '<article class="story-node">'
+            '<div class="story-card-head">'
+            f'{source_badge}<span class="story-ref">{escape(section.image_id)}</span>'
+            '</div>'
+            f'<div class="story-meta"><span class="story-position">{position:02d}</span>'
+            '叙事片段</div>'
+            f'<h3>{escape(section.subtitle)}</h3>'
+            f'<p>{escape(section.text)}</p></article>'
+        )
+        for gap in gap_by_after.get(section.image_id, []):
+            if gap.status == "generated":
+                badge = (
+                    '<span class="story-badge ai" '
+                    'title="该画面由生成模型创建">✨ AI 生成 · 已补全</span>'
+                )
+                detail = "过渡图已生成；下方影像序列会继续保留醒目的 AI 标识。"
+            elif gap.status == "failed":
+                badge = '<span class="story-badge failed">生成失败 · 可重试</span>'
+                detail = escape(gap.error or "请检查本地生成模型。")
+            else:
+                badge = '<span class="story-badge missing">缺图占位 · 待补全</span>'
+                detail = "勾选“自动检测并补全缺图”后可调用本地生成模型。"
+            nodes.append(
+                '<article class="story-gap-card">'
+                '<div class="story-card-head">'
+                f'{badge}<span class="story-ref">{escape(gap.gap_id)}</span>'
+                '</div>'
+                '<div class="story-meta">叙事连续性检测</div>'
+                '<h4>叙事过渡画面</h4>'
+                f'<p>{escape(gap.reason)}<br>{detail}</p></article>'
+            )
+    summary = (
+        '<div class="story-summary">'
+        f'<span class="story-summary-item">原始片段 <strong>{len(story.sections)}</strong></span>'
+        f'<span class="story-summary-item">检测缺口 <strong>{len(story.gaps)}</strong></span>'
+        f'<span class="story-summary-item">AI 已补全 <strong>{generated_count}</strong></span>'
+        f'<span class="story-summary-item">待补全 <strong>{pending_count}</strong></span>'
+    )
+    if failed_count:
+        summary += (
+            f'<span class="story-summary-item">补全失败 <strong>{failed_count}</strong></span>'
+        )
+    summary += '</div>'
+    return (
+        '<section class="story-head">'
+        f'<h2>{escape(story.title)}</h2>'
+        f'<p>{escape(story.ordering_reason)}</p></section>'
+        f'{summary}'
+        f'<div class="story-timeline">{"".join(nodes)}</div>'
+        f'<div class="story-disclaimer">{escape(story.disclaimer)}</div>'
+    )
 
 
 def build_app(service: SearchService) -> gr.Blocks:
@@ -245,48 +401,6 @@ def build_app(service: SearchService) -> gr.Blocks:
         )
         return markdown, answer_result.model_dump()
 
-    def story_html(story) -> str:
-        gap_by_after: dict[str, list[object]] = {}
-        for gap in story.gaps:
-            gap_by_after.setdefault(gap.after_image_id, []).append(gap)
-        nodes = []
-        for position, section in enumerate(story.sections, start=1):
-            source_badge = (
-                '<span class="story-badge ai">✨ AI 生成</span>'
-                if section.ai_generated
-                else '<span class="story-badge">原始图片</span>'
-            )
-            nodes.append(
-                '<article class="story-node">'
-                f'{source_badge}<div class="story-meta">片段 {position:02d} · '
-                f'{escape(section.image_id)}</div>'
-                f'<h3>{escape(section.subtitle)}</h3>'
-                f'<p>{escape(section.text)}</p></article>'
-            )
-            for gap in gap_by_after.get(section.image_id, []):
-                if gap.status == "generated":
-                    badge = '<span class="story-badge ai">✨ AI 生成</span>'
-                    detail = "过渡图已生成，并与原始图片分开展示。"
-                elif gap.status == "failed":
-                    badge = '<span class="story-badge failed">生成失败</span>'
-                    detail = escape(gap.error or "请检查本地生成模型。")
-                else:
-                    badge = '<span class="story-badge ai">缺图占位 · 待补全</span>'
-                    detail = "勾选“自动检测并补全缺图”后可调用本地生成模型。"
-                nodes.append(
-                    '<article class="story-gap-card">'
-                    f'{badge}<div class="story-meta">{escape(gap.gap_id)}</div>'
-                    '<h4>叙事过渡画面</h4>'
-                    f'<p>{escape(gap.reason)}<br>{detail}</p></article>'
-                )
-        return (
-            '<section class="story-head">'
-            f'<h2>{escape(story.title)}</h2>'
-            f'<p>{escape(story.ordering_reason)}</p></section>'
-            f'<div class="story-timeline">{"".join(nodes)}</div>'
-            f'<div class="story-disclaimer">{escape(story.disclaimer)}</div>'
-        )
-
     def create_story(
         results,
         selected_ids,
@@ -339,7 +453,7 @@ def build_app(service: SearchService) -> gr.Blocks:
                                 f"✨ AI 生成 · {gap.gap_id} · {gap.reason}",
                             )
                         )
-        return story_html(story), gallery, story.model_dump()
+        return render_story_html(story), gallery, story.model_dump()
 
     with gr.Blocks(
         title="Anima · 视觉语言相册",
@@ -421,6 +535,23 @@ def build_app(service: SearchService) -> gr.Blocks:
                             )
 
                 with gr.Tab("视觉故事 · M7"):
+                    gr.HTML(
+                        """
+                        <section class="m7-intro">
+                          <div class="m7-intro-icon">✦</div>
+                          <div>
+                            <h3>把检索结果编排成可追溯的视觉故事</h3>
+                            <p>系统先根据时间与场景自动排序，再检查相邻画面的叙事连续性。
+                            原图与模型生成的过渡图始终使用不同标识，便于展示和审计。</p>
+                            <div class="m7-legend" aria-label="故事状态图例">
+                              <span>🖼 原始图片</span>
+                              <span class="legend-gap">缺图占位</span>
+                              <span class="legend-ai">✨ AI 生成</span>
+                            </div>
+                          </div>
+                        </section>
+                        """
+                    )
                     gr.Markdown(
                         "从当前结果选择图片：证据问答支持 1–3 张；视觉故事支持 "
                         "3–8 张，并按时间与场景自动排序。",
