@@ -1,0 +1,95 @@
+\documentclass[UTF8,11pt,a4paper]{ctexart}
+\usepackage[a4paper,margin=2.15cm]{geometry}
+\usepackage{booktabs,longtable,tabularx,array,graphicx}
+\usepackage{xcolor,enumitem,microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{float}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.25em}
+\setlist{nosep,leftmargin=2em}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\definecolor{boundaryblue}{RGB}{235,244,252}
+\newcommand{\code}[1]{\texttt{\small #1}}
+\title{忆见 AskAlbum：面向真实场景相册的\\结构化标注、混合检索与叙事 Agent}
+\author{视觉与自然语言处理课程设计小组}
+\date{2026 年 8 月}
+\begin{document}
+\maketitle
+\begin{abstract}
+本文介绍忆见 AskAlbum，一个面向真实场景相册的可复现视觉语言检索系统。系统将课程要求组织为 M0--M7 八个模块：用场景路由选择提示词，以视觉语言模型产生结构化标注，以回译和检测器完成可验证性检查，建立图像、结构化文本和 BM25 三路索引，理解复杂中文查询，使用 RRF 或归一化加权融合召回，再由 Qwen3-VL 对 Top-20 候选进行 listwise 重排，最后生成带引用的回答、按时间和场景排序的视觉故事，并在故事缺口处显式插入带 AI 标识的生成图片。队友提供了 M0--M2 以及原始 M3--M5 基线和 Qwen3.5 canonical 标注；本文将这些作为团队共同起点，重点报告其上的接口迁移、后标注联调、M6/M7、M4 后端、A7 编码器适配、正式评测框架、部署和 Demo 复现工作。实验在 RTX 4060 Laptop 8GB 上完成。12 条 Top-20 listwise 运行共处理 240 个候选，峰值 CUDA 分配约 4.10 GiB，硬失败为 0；三个 M7 故事中一个成功生成缺图。候选级 0/1/2 相关性判断尚未冻结，故本文不虚构最终 Recall、MRR、mAP 或 nDCG 质量结论。
+\noindent\textbf{关键词：}视觉语言模型；中文图文检索；混合召回；listwise 重排；视觉故事；可复现部署
+\end{abstract}
+\noindent\fcolorbox{blue!55!black}{boundaryblue}{\parbox{0.94\linewidth}{\textbf{贡献归属声明：}队友完成了 M0--M2、Qwen3.5 canonical 标注和原始 M3--M5 三路索引、搜索服务与 RRF 基线。本文不将上述内容写成个人成果；团队报告按模块和角色描述贡献。本人主要完成基线迁移与一致性验收、M5--M6 接口、M6 listwise、M7 故事与缺图补全、M4 后端、A7 适配、评测门禁、部署和最终 Demo 文档。}}
+\section{引言}
+真实相册检索同时包含“找图”和“理解图”两类问题。用户可能提出简单查询“长颈鹿进食”，也可能提出含组合属性、否定、计数或 OCR 的查询，例如“窗边一只表情严肃的猫”“没有人物的乡间田野”“桌上摆着七个烤生蚝”或“写有库仑定律的物理笔记”。单一 CLIP 相似度适合快速召回，但难以可靠表达数量、否定和文字约束；单次 VLM 生成又难以扫描数千张图片。因此，本项目采用\emph{快模型广召回、慢模型精排、结构化证据约束输出}的分层方案。
+
+课程方案还要求体现 prompt engineering、多 Agent 编排、无公开测试集条件下的评估和可部署性。我们的系统明确使用顺序流水线、并行 fan-out/fan-in 和路由分发三种编排：M0--M2 为顺序链，M5 的三路召回并行后融合，M0/M4 根据场景和查询类型路由到不同 prompt 或后端。最终交付不是固定测试结果，而是一条可对新目录复跑的流水线。
+\section{相关工作}
+Chinese-CLIP 将中文文本与图像映射到共享空间，适合作为中文相册的低成本初筛编码器\citep{chineseclip2022}；jina-clip-v2 提供多语图文嵌入和 Matryoshka 截断能力\citep{jinaclipv2}。FAISS 支持在当前数据规模上使用精确内积检索\citep{faiss2017}。RRF 不依赖不同检索分支分数的共同标尺，适合异构结果融合\citep{rrf2009}。已有工作也探索将多模态大模型用作检索重排器\citep{ragvl}。视觉故事任务与 VIST 的序列叙事设定相关\citep{vist2016}，Gradio 则为本项目提供轻量交互界面\citep{gradio}。Qwen3-VL 是本地 M6/M7 的图像理解模型\citep{qwen3vl}。
+\section{系统设计}
+\subsection{总体架构与数据流}
+系统离线阶段从任意图片目录开始，在线阶段接收中文查询：
+\begin{verbatim}
+raw images -> M0 route -> M1 structured VLM annotation -> M2 validation
+           -> M3 image/text/BM25 indexes
+query -> M4 query understanding -> M5 parallel recall + fusion
+      -> M6 Qwen3-VL rerank -> M7 answer/story/gap filling
+\end{verbatim}
+M1 的核心输出不是一段自由 caption，而是可检验 schema，包括 scene、capture、objects、persons、OCR、relations、事件、情绪、双语关键词、不确定字段和置信度。这样一方面让文本检索可利用对象、关系和 OCR，另一方面为 M2 的对象级幻觉检查及 M7 的事实边界提供字段级证据。
+\subsection{M0--M2：路由、标注与验证}
+M0 在计算图像索引向量时复用 CLIP 图像塔，对室内、街景、自然、人像、美食、夜景、文字场景等类别做 zero-shot 路由，并为 M1 选择类别专用 prompt。M1 使用 JSON Schema 约束、先证据后结论的字段顺序、负面约束、少样本锚定、自洽采样和跨模型交叉检查。M2 以 GroundingDINO/OWLv2 类检测器核对 objects，以 OCR 核对文字字段，并保留 uncertain\_fields；可选的 EchoBack 将描述输入文生图模型，再用 DINOv2 比较重建图和原图，作为无参考自验证信号。M0--M2 及 canonical 标注由队友完成，本文只记录其接口和验收边界。
+\subsection{M3：三路索引}
+M3 为每个 split 建立三个相互独立的分支：Chinese-CLIP 图像向量索引、结构化标注文本的稠密向量索引和关键词 BM25 倒排索引。所有索引都以 manifest 中的 image\_id、split、相对路径和 SHA-256 绑定，防止图片、标注和候选 ID 错配。当前全量验收为 Train 1993 条、Val 369 条，三路索引均能从同一 manifest 重建。该数据迁移和一致性验收是本人在队友基线上的工作，不等同于重新实现队友的原始索引。
+\subsection{M4：查询理解与回退}
+M4 将查询解析为 category、semantic\_text、entities、attributes、negative、count、OCR 和 time 等槽位。rules 后端直接识别中文否定词、数字、引号文本和时间词；local Qwen 后端补充软语义；OpenAI-compatible 后端可接入免费或自托管 API。LLM 后端失败、超时、无 Key 或输出非法 JSON 时，系统保留规则解析并记录 fallback\_reason，而不是阻断 M5。该设计对负面、计数和 OCR 查询尤其重要。
+\subsection{M5：并行召回与融合}
+三路召回并行执行并保留 branch\_scores、branch\_ranks 和降级信息。默认 RRF 计算为
+\[
+\mathrm{RRF}(d)=\sum_{b\in B}\frac{1}{k+\mathrm{rank}_b(d)},
+\]
+其中 $k$ 为平滑常数。为满足消融要求，另实现分支内 min--max 归一化后的加权融合，默认权重为 image/text/BM25 = 0.4/0.4/0.2；分支失效时仅在有效分支间重新归一化。两种方法在 20 图冒烟中 Top-8 平均重合率为 92.71\%，共同候选平均位次变化为 0.446；RRF 和 weighted 平均耗时分别为 10.58 ms 和 6.62 ms。该小样本只证明工程可运行，不代表质量优劣。
+\subsection{M5--M6 契约与 M6 listwise}
+M5 输出采用 m5-to-m6-v1.0 契约：每个 query 一行、恰好 20 个唯一候选、rank 为 1--20、分支分数和名次键集合一致，并通过 manifest、路径、split 和图像解码完整扫描。M6 将 Top-20 编号拼成 contact sheet，调用 Qwen3-VL-2B-Instruct 一次输出候选 ID 顺序。白名单校验会去重重复 ID、按 M5 原序补回遗漏 ID；未知 ID、空输出、非法 JSON 或异常触发完整 M5 硬回退，部分修复写入 degraded 和 mismatch。
+\begin{table}[H]\centering\small\caption{M6 正式 listwise 资源与稳定性结果}\begin{tabular}{l r}\toprule 指标 & 实测值\\\midrule 查询数 / 候选数 & 12 / 240\\接口校验 & valid=true，错误 0\\总耗时 / 平均每查询 & 110.968 s / 9.247 s\\峰值 CUDA 分配 & 4,405,989,376 B（约 4.10 GiB）\\无降级 / 部分降级 / 硬失败 & 4/12 / 8/12 / 0/12\\\bottomrule\end{tabular}\end{table}
+8 条部分降级均来自模型返回重复或遗漏候选 ID，系统按契约修复且没有未知 ID 或异常导致的整批回退。q001 的固定候选 smoke 另验证了 pointwise、listwise、MRR/nDCG 计算链路，但 qrels 只有来源图正例，不能作为最终质量结论。
+\subsection{M7：引用回答、视觉故事与缺图补全}
+M7 严格读取 M6 的 query 和 ordered IDs，再从 canonical 映射中取 summary、scene、时间桶、实体、OCR 和不确定性。自动排序优先使用时间桶，并以场景/实体相似度做稳定 tie-break；故事输入限定为 3--8 张图，sections 顺序必须与 ordered IDs 一致。转场相似度过低或时间跨度过大时插入 missing gap。只有用户显式启用补图才加载 Stable Diffusion；生成段落固定写入 \code{source=generated} 和 \code{ai\_generated=true}，避免将合成图误当真实检索结果。
+\begin{table}[H]\centering\small\caption{M7 三个正式故事的工程验收}\begin{tabular}{l c c l}\toprule 故事 & 图片数 & gap & 结果\\\midrule \code{m6-q01} & 5 & 2 & 保留 missing 占位，未请求生成\\\code{m6-q03} & 5 & 1 & 成功生成 1 张，双重 AI 标识\\\code{m6-q09} & 5 & 2 & 保留 missing 占位，未请求生成\\\bottomrule\end{tabular}\end{table}
+\section{实验设置}
+硬件为 RTX 4060 Laptop 8GB；环境由 pixi/Conda 锁定，默认本地模型为 Qwen3-VL-2B-Instruct 和 Chinese-CLIP，生成补图使用轻量 Stable Diffusion 配置。训练集和验证集分别为 1993 和 369 张已映射图片。离线索引、在线 Gradio 服务、M6/M7 CLI 和 Docker Compose 均提供复现入口。
+\subsection{评测设计与防循环门禁}
+验证集查询先由来源图 ID 审核，形成 100 条查询，类别为 simple 28、compositional 26、negative 14、count 14、OCR 18。再从五类各选 10 条，收集五种召回变体的 Top-5，构成 50 查询候选池，平均每条 10.8 个候选。候选级人工标签采用 0/1/2：不相关、部分相关、核心相关。标签不能由检索分数自动推断；来源图正例也不能替代对其他候选的判断。冻结后统一运行 A5 五变体和 A6 baseline/pointwise/listwise，报告 Recall@K、MRR、mAP 和 nDCG@10，并按查询类别分组。
+截至本文提交，\code{candidate\_relevance.csv}、\code{qrels\_validation.json}、正式 A5 和 A6 质量文件尚未产生，因此正文不填写最终排序质量数字。这一门禁保证评测不使用模型自身分数制造标签。
+\subsection{A7 编码器资源对比}
+在同一 Val 前 64 张图片、512 维和五条中文查询上，两个编码器只做资源实验。\begin{table}[H]\centering\small\caption{A7：Chinese-CLIP 与 jina-clip-v2 资源对比}\begin{tabular}{l r r}\toprule 指标 & Chinese-CLIP 512 & jina-clip-v2 512\\\midrule 模型大小 & 1.507 GB & 1.748 GB\\batch size & 4 & 1\\冷启动建库 & 6.060 s & 10.510 s\\吞吐 & 10.560 image/s & 6.089 image/s\\峰值 CUDA & 0.394 GiB & 2.577 GiB\\索引大小 & 132,669 B & 132,709 B\\热查询均值 & 2.251 ms & 47.701 ms\\\bottomrule\end{tabular}\end{table}
+两者都能在 8GB 显存上运行；本次实验只说明资源可行性，不能说明哪一个在本数据集上的 Recall 更高。jina 的多语能力、512×512 输入和 Matryoshka 截断是适配价值，但不同编码器索引不可混用，切换后必须重建 image 分支。
+\section{结果、讨论与局限}
+本项目已经得到一条从目录到 Demo 的完整工程路径：队友 canonical 标注经过只读映射后，Train/Val 三路索引可以重建；M4 在模型不可用时安全回退；M5 输出可审计的 Top-20；M6 在 8GB 显存上完成 listwise 运行且硬失败为 0；M7 能产生有序故事并标识生成图；Docker 和最终 Demo runbook 提供部署复现。工程结果表明，8GB 设备不需要加载 7B 级 VLM 才能完成全流程，关键是把昂贵模型限制在 Top-20 和故事 gap 上。
+主要局限有三点。第一，8 条 M6 部分降级显示 listwise 提示词和输出解析仍需改进，后续可使用严格 JSON grammar、短 ID token 和二次校验降低遗漏。第二，候选级 qrels 尚未冻结，当前不能回答“RRF、weighted、pointwise、listwise 谁的质量更好”；这不是遗漏结果，而是主动避免循环评测。第三，M7 的故事连贯性和生成图真实性尚未进行人工 Arena、CLIPScore 或 CHAIR 评价，当前结论限于流程、资源和可追溯性。
+迁移到抽象艺术、古典绘画或医学影像时，所谓迁移能力主要指同一套图文编码、结构化 schema、查询理解和重排流程在域外图像上的检索与描述性能保持程度，而不是模型是否见过该领域。预计 OCR、风格词和医学术语会造成分布偏移；应增加少量领域查询与人工 qrels，比较零样本性能、提示词增强性能和错误类型，并报告置信度与幻觉率。
+\section{结论}
+忆见 AskAlbum 将结构化标注、可验证性、混合检索、VLM 重排和视觉叙事整合为一条可复现流水线。团队边界清晰：队友交付 M0--M5 基础和 canonical 标注，本文完成其上的工程联调、M6/M7、评测门禁、A7、部署与 Demo。当前最重要的剩余步骤是完成 50 条候选池的 0/1/2 人工判断，冻结 qrels 后运行 A5/A6 正式质量实验，并将结果补入团队报告；在此之前，本文只报告可验证的工程和资源证据。
+\section*{贡献声明}
+为避免将队友工作误记为个人成果，贡献按角色划分：标注与 M0--M2 由标注/前置模块角色完成；原始 M3--M5 三路检索基线由检索基线角色完成；本人负责基线迁移验收、M5 融合对照、M5--M6 接口、M6 listwise、M7 故事和补图、M4 后端、A7 适配、正式评测脚本、Docker 部署与最终 Demo 文档。所有最终质量指标须以冻结的人工 qrels 为准。
+\appendix
+\section{接口与复现命令}
+M5--M6 的最小契约如下：每行一个 query；\code{query\_id} 唯一；\code{candidates} 长度为 20；每个候选包含唯一 \code{image\_id}、\code{rank}、\code{path}、\code{branch\_scores} 和 \code{branch\_ranks}；候选路径、split 和图像 SHA-256 必须与 index manifest 一致。M6 输出保留 M5 字段，并增加 \code{rerank\_rank}、\code{degraded} 和 \code{mismatch}。M7 生成段落必须同时带 \code{source=generated} 与 \code{ai\_generated=true}。
+典型复现命令：
+\begin{verbatim}
+conda run -n vlm-course python run.py --input_dir ../Val --dry-run --launch
+conda run -n vlm-course python scripts/validate_m5_m6_interface.py \\
+  --input artifacts/evaluation/m5_to_m6_candidates.jsonl \\
+  --report artifacts/evaluation/m6_validation_report.json
+conda run -n vlm-course python scripts/run_m6_from_m5.py \\
+  --input artifacts/evaluation/m5_to_m6_candidates.jsonl \\
+  --method listwise --output artifacts/evaluation/m6_rerank_results.jsonl
+conda run -n vlm-course python scripts/run_m7_from_m6.py \\
+  --m6-results artifacts/evaluation/m6_rerank_results.jsonl \\
+  --query-id m6-q03 --select-count 5 \\
+  --output artifacts/evaluation/m7_stories/m6-q03.json
+\end{verbatim}
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}
