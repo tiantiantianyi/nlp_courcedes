@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import json
 
-from anima_search.app.ui import APP_CSS, build_app, render_story_html
+from anima_search.app.ui import (
+    APP_CSS,
+    build_app,
+    render_annotation_details,
+    render_content_details,
+    render_evidence_details,
+    render_search_details,
+    render_story_details,
+    render_story_html,
+)
 from anima_search.m7.schemas import StoryGap, StorySection, VisualStory
 
 
@@ -95,3 +104,70 @@ def test_m7_tab_contains_readable_intro_and_status_legend(tmp_path):
             ".story-badge.missing",
         )
     )
+
+
+
+def test_readable_cards_present_search_annotation_evidence_story_and_content():
+    search_html = render_search_details(
+        [
+            {
+                "image_id": "val-1",
+                "fused_score": 0.75,
+                "branch_scores": {"image": 0.9, "text": 0.7},
+                "branch_ranks": {"image": 1, "text": 2},
+                "active_branches": ["image", "text"],
+                "matched_fields": ["场景", "主体"],
+                "evidence": ["画面中出现城市街道"],
+            }
+        ]
+    )
+    annotation_html = render_annotation_details(
+        {
+            "summary": "雨夜街道",
+            "scene": "城市",
+            "objects": ["汽车"],
+            "object_counts": {"汽车": 2},
+            "actions": ["行驶"],
+            "ocr_text": ["出口"],
+        }
+    )
+    evidence_html = render_evidence_details(
+        {
+            "citations": ["val-1"],
+            "confidence": 0.8,
+            "refused": False,
+            "evidence": [
+                {
+                    "image_id": "val-1",
+                    "relevant": True,
+                    "facts": ["可以看到两辆汽车"],
+                    "uncertainty": ["无法确认具体城市"],
+                }
+            ],
+        }
+    )
+    story_html = render_story_details(_story())
+    content_html = render_content_details(
+        {"title": "雨夜归途", "content": "灯光沿街道延伸", "hashtags": ["夜景"]}
+    )
+
+    assert "综合匹配 0.7500" in search_html
+    assert "画面语义" in search_html
+    assert "汽车 × 2" in annotation_html
+    assert "置信度 80%" in evidence_html
+    assert "无法确认具体城市" in evidence_html
+    assert "排序方式" in story_html
+    assert "雨夜归途" in content_html
+    assert all(
+        'class="detail-card"' in html
+        for html in (search_html, annotation_html, evidence_html, story_html, content_html)
+    )
+
+
+def test_readable_cards_escape_untrusted_text():
+    html = render_annotation_details(
+        {"summary": "<script>alert(1)</script>", "scene": "城市", "objects": []}
+    )
+
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html

@@ -1,0 +1,17 @@
+archive: ../data.zip
+dataset_dir: ../domain_transfer_data/a9_subset
+output_dir: artifacts/evaluation/a9
+seed: 20260802
+per_category: 20
+domains:
+  wikiart:
+    styles: [Impressionism, Post_Impressionism, Baroque, Realism, Romanticism]
+  mimic_cxr:
+    categories: [pleural_effusion, pulmonary_edema, pneumothorax, atelectasis, no_acute_abnormality]
+evaluation:
+  encoder: chinese_clip
+  batch_size: 4
+  top_k: 20
+  manual_review_required: false
+  manual_review_rows: 0
+medical_notice: 医学影像实验仅用于观察模型跨领域行为，不用于任何临床诊断或医疗决策。

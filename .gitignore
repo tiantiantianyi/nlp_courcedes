@@ -36,6 +36,8 @@ Qwen--Qwen3-VL-2B-Instruct/
 stablediffusion/
 Train/
 Val/
+domain_transfer_data/
+a9_preview/
 
 # Personal LaTeX report build artifacts
 docs/personal_report/*.aux

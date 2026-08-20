@@ -13,7 +13,7 @@ from anima_search.app.ui import APP_CSS, build_app
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Launch the Anima search interface.")
+    parser = argparse.ArgumentParser(description="Launch the AskAlbum search interface.")
     parser.add_argument("--config", default="configs/default.yaml")
     parser.add_argument("--split", choices=["train", "val"], default="val")
     parser.add_argument("--host", default="127.0.0.1")
@@ -21,13 +21,20 @@ def main() -> None:
     parser.add_argument("--share", action="store_true")
     args = parser.parse_args()
 
-    app = build_app(create_service(args.config, args.split))
+    service = create_service(args.config, args.split)
+    app = build_app(service)
+    project_root = Path(service.config["project_root"]).resolve()
+    data_dir = (
+        project_root / service.config["data"][f"{args.split}_dir"]
+    ).resolve()
     app.launch(
         server_name=args.host,
         server_port=args.port,
         share=args.share,
         theme=gr.themes.Soft(),
         css=APP_CSS,
+        allowed_paths=[str(data_dir)],
+        show_error=True,
     )
 
 
