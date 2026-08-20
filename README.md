@@ -1,20 +1,8 @@
 # 忆见 AskAlbum 视觉语言相册检索系统
 
-本仓库实现技术方案中的 M3–M7：多路索引、结构化查询理解、RRF 混合召回、可选 VLM pointwise 重排，以及带图片引用的问答和视觉故事。正式标注尚未冻结时，也可以使用 mock 或 image-only 模式继续开发。
+本仓库实现nlp课程设计中的：多路索引、结构化查询理解、RRF 混合召回、可选 VLM pointwise 重排，以及带图片引用的问答和视觉故事。正式标注尚未冻结时，也可以使用 mock 或 image-only 模式继续开发。
 
 视觉重排默认关闭，避免在普通搜索时意外加载 Qwen-VL。模拟数据和 image-only 占位记录只用于工程验证，不能作为课程报告的正式检索指标。
-
-## 阶段报告与实测图表
-
-- [2026-08-10 阶段性技术报告](docs/STAGE_REPORT_2026-08-10.md)
-- [2026-08-10 四项优先任务实施报告](docs/PRIORITY_TASKS_REPORT_2026-08-10.md)
-- [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
-- [2026-08-11 M4 查询理解三后端报告](docs/M4_QUERY_BACKENDS_2026-08-11.md)
-- [2026-08-11 A7 图像编码器资源对比](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)
-- [M3--M7 最终 Demo 操作手册](docs/FINAL_DEMO_RUNBOOK.md)
-- [Conda/Pixi/Docker GPU 部署说明](docs/DEPLOY.md)
-- 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
-- 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 
 ## 1. 三种运行模式
 
