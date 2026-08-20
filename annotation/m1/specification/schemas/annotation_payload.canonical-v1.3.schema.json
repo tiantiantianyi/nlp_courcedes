@@ -1,0 +1,571 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://askalbum.local/schemas/annotation-payload-v1.3.json",
+  "title": "AskAlbum M1 Canonical Annotation Payload v1.3",
+  "description": "M1 候选经可审计机械归一化后的入库载荷。v1.3 只放宽开放文本长度和 OCR 密集图容量；枚举、引用完整性、bbox、字段类型和颜色上限等硬约束保持不变。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scene",
+    "capture_visual",
+    "entities",
+    "ocr",
+    "relations",
+    "event",
+    "subjective",
+    "captions",
+    "uncertainties"
+  ],
+  "properties": {
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_type",
+        "secondary_types",
+        "media_type",
+        "sub_type_zh",
+        "environment"
+      ],
+      "properties": {
+        "primary_type": {
+          "type": "string",
+          "enum": [
+            "general",
+            "indoor",
+            "street_urban",
+            "nature",
+            "people_activity",
+            "food",
+            "transport",
+            "animal_plant",
+            "object_exhibit",
+            "illustration_meme",
+            "document_screen"
+          ]
+        },
+        "secondary_types": {
+          "description": "最多三个同时成立但不是主要检索主题的内容类型。不得包含 primary_type，由语义校验器检查。",
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "enum": [
+              "indoor",
+              "street_urban",
+              "nature",
+              "people_activity",
+              "food",
+              "transport",
+              "animal_plant",
+              "object_exhibit",
+              "illustration_meme",
+              "document_screen"
+            ]
+          }
+        },
+        "media_type": {
+          "description": "描述当前图像呈现的媒介形态，不根据文件扩展名猜测。",
+          "type": "string",
+          "enum": [
+            "natural_image",
+            "illustration",
+            "screenshot",
+            "document_scan",
+            "mixed",
+            "unknown"
+          ]
+        },
+        "sub_type_zh": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "indoor",
+            "outdoor",
+            "mixed",
+            "unknown",
+            "not_applicable"
+          ]
+        }
+      }
+    },
+    "capture_visual": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "只描述像素呈现的拍摄外观，不把它当作 EXIF 或真实时间、天气元数据。",
+      "required": [
+        "time_of_day",
+        "weather",
+        "lighting",
+        "viewpoint",
+        "shot_scale",
+        "blur_level"
+      ],
+      "properties": {
+        "time_of_day": {
+          "type": "string",
+          "enum": [
+            "day",
+            "dawn_dusk",
+            "night",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "weather": {
+          "type": "string",
+          "enum": [
+            "clear",
+            "cloudy",
+            "rain",
+            "snow",
+            "fog",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "lighting": {
+          "type": "string",
+          "enum": [
+            "natural",
+            "artificial",
+            "mixed",
+            "low_light",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "viewpoint": {
+          "type": "string",
+          "enum": [
+            "eye_level",
+            "high_angle",
+            "low_angle",
+            "aerial",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "shot_scale": {
+          "type": "string",
+          "enum": [
+            "close_up",
+            "medium",
+            "wide",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "blur_level": {
+          "type": "string",
+          "enum": [
+            "none",
+            "mild",
+            "severe",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "entities": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entity_id",
+          "entity_type",
+          "name_zh",
+          "count",
+          "count_exact",
+          "bbox_norm_1000",
+          "position_zone",
+          "salience",
+          "visibility",
+          "attributes"
+        ],
+        "properties": {
+          "entity_id": {
+            "type": "string",
+            "pattern": "^e[1-9][0-9]*$"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "person",
+              "animal",
+              "object",
+              "vehicle",
+              "plant",
+              "food",
+              "building",
+              "document",
+              "screen",
+              "artwork",
+              "other"
+            ]
+          },
+          "name_zh": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "count_exact": {
+            "type": "boolean"
+          },
+          "bbox_norm_1000": {
+            "description": "[x1,y1,x2,y2]，坐标归一化到 0-1000。对象分散、成群或无法可靠定位时填 null。",
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "position_zone": {
+            "type": "string",
+            "enum": [
+              "top_left",
+              "top_center",
+              "top_right",
+              "middle_left",
+              "center",
+              "middle_right",
+              "bottom_left",
+              "bottom_center",
+              "bottom_right",
+              "spans_multiple",
+              "unknown"
+            ]
+          },
+          "salience": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "secondary",
+              "background"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "clear",
+              "partial",
+              "unclear"
+            ]
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "colors_zh",
+              "materials_zh",
+              "states_zh",
+              "action_zh",
+              "attire_zh"
+            ],
+            "properties": {
+              "colors_zh": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "type": "string",
+                  "maxLength": 30
+                }
+              },
+              "materials_zh": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "type": "string",
+                  "maxLength": 60
+                }
+              },
+              "states_zh": {
+                "type": "array",
+                "maxItems": 4,
+                "items": {
+                  "type": "string",
+                  "maxLength": 60
+                }
+              },
+              "action_zh": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              },
+              "attire_zh": {
+                "description": "仅用于 person，其他实体填空数组。只记录可见服饰，不推断职业、身份或群体属性。",
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "type": "string",
+                  "maxLength": 80
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ocr": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text_id",
+          "text_raw",
+          "language",
+          "bbox_norm_1000",
+          "legibility"
+        ],
+        "properties": {
+          "text_id": {
+            "type": "string",
+            "pattern": "^t[1-9][0-9]*$"
+          },
+          "text_raw": {
+            "description": "按画面原样抄录，不翻译、不补全、不纠错。无法可靠辨认的文字不写入。",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "zh",
+              "en",
+              "mixed",
+              "other",
+              "unknown"
+            ]
+          },
+          "bbox_norm_1000": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "legibility": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          }
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject_id",
+          "predicate",
+          "object_id",
+          "predicate_other_zh"
+        ],
+        "properties": {
+          "subject_id": {
+            "type": "string",
+            "pattern": "^e[1-9][0-9]*$"
+          },
+          "predicate": {
+            "type": "string",
+            "enum": [
+              "left_of",
+              "right_of",
+              "above",
+              "below",
+              "in_front_of",
+              "behind",
+              "inside",
+              "on",
+              "under",
+              "next_to",
+              "overlapping",
+              "holding",
+              "wearing",
+              "riding",
+              "looking_at",
+              "eating",
+              "other"
+            ]
+          },
+          "object_id": {
+            "type": "string",
+            "pattern": "^e[1-9][0-9]*$"
+          },
+          "predicate_other_zh": {
+            "description": "predicate=other 时填写简短关系，其余情况填 null。",
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary_zh",
+        "evidence_entity_ids"
+      ],
+      "properties": {
+        "summary_zh": {
+          "description": "概括画面中直接可见的动作或状态；没有明确事件时填 null。",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 160
+        },
+        "evidence_entity_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 24,
+          "items": {
+            "type": "string",
+            "pattern": "^e[1-9][0-9]*$"
+          }
+        }
+      }
+    },
+    "subjective": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "主观字段与事实字段分开保存，不参加对象事实投票。",
+      "required": [
+        "mood_terms_zh",
+        "palette_terms_zh",
+        "aesthetic_score",
+        "aesthetic_reason_zh"
+      ],
+      "properties": {
+        "mood_terms_zh": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "maxLength": 30
+          }
+        },
+        "palette_terms_zh": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "string",
+            "maxLength": 30
+          }
+        },
+        "aesthetic_score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "aesthetic_reason_zh": {
+          "type": "string",
+          "maxLength": 160
+        }
+      }
+    },
+    "captions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "short_zh",
+        "dense_zh"
+      ],
+      "properties": {
+        "short_zh": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "dense_zh": {
+          "description": "只综合本 JSON 中已有事实，不增加身份、地点、因果、时间或不可见细节。",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "uncertainties": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field_path",
+          "reason",
+          "note_zh"
+        ],
+        "properties": {
+          "field_path": {
+            "description": "JSON Pointer，例如 /capture_visual/weather 或 /entities/e2/count。",
+            "type": "string",
+            "pattern": "^/"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "blur",
+              "occlusion",
+              "too_small",
+              "cropped",
+              "ambiguous_text",
+              "ambiguous_category",
+              "count_unreliable",
+              "low_resolution",
+              "reflection_or_glare",
+              "other"
+            ]
+          },
+          "note_zh": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      }
+    }
+  }
+}

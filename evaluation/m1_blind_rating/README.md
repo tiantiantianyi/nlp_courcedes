@@ -6,12 +6,12 @@
 
 ## 启动正式任务
 
-在服务器执行：
+在仓库根目录执行：
 
 ```bash
-python external/nlp_courcedes/evaluation/m1_blind_rating/blind_rating_server.py \
-  --rating-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_blind_rating/v1_0 \
-  --workspace-root /home/xiaobo.xia/JiafengWu/agent \
+python evaluation/m1_blind_rating/blind_rating_server.py \
+  --rating-dir <workspace>/artifacts/m1_blind_rating \
+  --workspace-root <workspace> \
   --host 127.0.0.1 \
   --port 8766
 ```
@@ -19,7 +19,7 @@ python external/nlp_courcedes/evaluation/m1_blind_rating/blind_rating_server.py 
 正式服务使用 8766，避免和旧精细评审的 8765 冲突。Windows PowerShell 建立 SSH 转发：
 
 ```powershell
-ssh -N -L 18766:127.0.0.1:8766 xiaobo.xia@114.214.255.126
+ssh -N -L 18766:127.0.0.1:8766 <user>@<server>
 ```
 
 浏览器打开 `http://127.0.0.1:18766`。固定使用同一个评审者名称，程序会按名称隔离记录并恢复进度。
@@ -40,9 +40,18 @@ ssh -N -L 18766:127.0.0.1:8766 xiaobo.xia@114.214.255.126
 ## 导出结果
 
 ```bash
-python external/nlp_courcedes/evaluation/m1_blind_rating/export_blind_rating.py \
-  --rating-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_blind_rating/v1_0 \
+python evaluation/m1_blind_rating/export_blind_rating.py \
+  --rating-dir <workspace>/artifacts/m1_blind_rating \
   --reviewer '<网页中使用的评审者名称>'
+```
+
+多人独立评审时，为避免覆盖前一位评审者的结果，指定单独输出目录：
+
+```bash
+python evaluation/m1_blind_rating/export_blind_rating.py \
+  --rating-dir <workspace>/artifacts/m1_blind_rating \
+  --reviewer '<网页中使用的评审者名称>' \
+  --output-dir <workspace>/artifacts/m1_blind_rating/reviewer_exports/<评审者目录>
 ```
 
 输出文件：
@@ -54,6 +63,15 @@ reports/metrics.md     便于课程报告引用的表格
 ```
 
 只有已经提交的图片会进入统计，草稿不会。
+
+两位评审者都导出后，可以比较模型排序、逐项分差、严重错误和最佳候选的一致性：
+
+```bash
+python evaluation/m1_blind_rating/compare_reviewers.py \
+  --review-a <第一位评审者的 exports/reviews.jsonl> \
+  --review-b <第二位评审者的 exports/reviews.jsonl> \
+  --output-dir <一致性报告目录>
+```
 
 ## 重新生成任务
 

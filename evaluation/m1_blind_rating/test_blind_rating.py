@@ -21,6 +21,7 @@ from blind_rating_common import (  # noqa: E402
 )
 from blind_rating_server import RatingStore  # noqa: E402
 from build_blind_rating_tasks import allocate_diverse_high_disagreement  # noqa: E402
+from compare_reviewers import DIMENSIONS, cohen_kappa, compare  # noqa: E402
 
 
 def full_rating(best_choice: str = "candidate_1") -> dict:
@@ -180,6 +181,53 @@ class RatingStoreTest(unittest.TestCase):
         reopened = self.store.reopen("1", "reviewer")
         self.assertEqual(reopened["phase"], "draft")
         self.assertEqual(self.store.summary("reviewer")["counts"]["draft"], 1)
+
+
+class CompareReviewersTest(unittest.TestCase):
+    def test_cohen_kappa_known_values(self) -> None:
+        self.assertEqual(
+            cohen_kappa([(1, 1), (2, 2), (3, 3)], [1, 2, 3], quadratic=True),
+            1.0,
+        )
+        self.assertAlmostEqual(
+            cohen_kappa(
+                [(False, False), (False, True), (True, True), (True, True)],
+                [False, True],
+            ),
+            0.5,
+        )
+
+    def test_identical_revealed_exports_have_full_agreement(self) -> None:
+        rows = []
+        for image_id, offset in (("1", 0), ("2", 1)):
+            revealed = {}
+            for position, source_id in enumerate(SOURCE_IDS):
+                score = max(1, 5 - position - offset)
+                revealed[source_id] = {
+                    "source_name": source_id,
+                    "accuracy": score,
+                    "completeness": score,
+                    "usability": score,
+                    "severe_error": score == 1,
+                }
+            rows.append(
+                {
+                    "reviewer": "same",
+                    "image_id": image_id,
+                    "revealed_ratings": revealed,
+                    "revealed_best_choice": SOURCE_IDS[0],
+                }
+            )
+        result = compare(rows, rows)
+        self.assertTrue(result["composite_ranking"]["same_order"])
+        self.assertEqual(result["best_choice_agreement"]["exact_agreement_rate"], 1.0)
+        self.assertEqual(
+            result["severe_error_agreement"]["overall"]["agreement_rate"], 1.0
+        )
+        for dimension in DIMENSIONS:
+            self.assertEqual(
+                result["score_agreement"][dimension]["exact_agreement_rate"], 1.0
+            )
 
 
 if __name__ == "__main__":

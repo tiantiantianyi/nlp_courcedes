@@ -25,6 +25,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rating-dir", type=Path, required=True)
     parser.add_argument("--reviewer", required=True)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Optional output root; defaults to the rating directory.",
+    )
     return parser.parse_args()
 
 
@@ -105,10 +110,11 @@ def main() -> None:
     metrics["reviewer"] = reviewer
     metrics["task_count"] = len(tasks)
     metrics["task_sha256"] = sha256_file(tasks_path)
-    exports_dir = rating_dir / "exports"
-    reports_dir = rating_dir / "reports"
-    exports_dir.mkdir(exist_ok=True)
-    reports_dir.mkdir(exist_ok=True)
+    output_dir = args.output_dir.resolve() if args.output_dir else rating_dir
+    exports_dir = output_dir / "exports"
+    reports_dir = output_dir / "reports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    reports_dir.mkdir(parents=True, exist_ok=True)
     write_jsonl(exports_dir / "reviews.jsonl", export_rows)
     (reports_dir / "metrics.json").write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

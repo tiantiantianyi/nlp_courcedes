@@ -11,7 +11,9 @@
 - [2026-08-11 M7 自动故事与缺图补全报告](docs/M7_AUTO_STORY_UI_2026-08-11.md)
 - [2026-08-11 M4 查询理解三后端报告](docs/M4_QUERY_BACKENDS_2026-08-11.md)
 - [2026-08-11 A7 图像编码器资源对比](docs/A7_JINA_CLIP_COMPARISON_2026-08-11.md)
+- [结构化视觉标注流水线](annotation/m1/README.md)：包含共享提示词、JSON Schema、本地 Qwen/InternVL 推理、保守清洗和联合校验。
 - [M1 标注融合人工评测工具](evaluation/m1_annotation_audit/README.md)：在同一批 30 张图片上盲评 Qwen、InternVL 和 Fusion，支持断点续评和指标导出。
+- [三模型简化盲评工具](evaluation/m1_blind_rating/README.md)：在同图匿名条件下比较准确性、完整性和整体可用性，并支持独立评审一致性统计。
 - 报告区分工程就绪度与正式效果指标，并逐项对照技术方案 M0–M7。
 - 可视化可通过 `python scripts/generate_stage_report_figures.py` 重新生成。
 

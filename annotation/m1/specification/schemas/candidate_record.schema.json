@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://askalbum.local/schemas/m1-candidate-record-v1.0.3.json",
+  "title": "AskAlbum M1 Candidate Record v1.0.3",
+  "description": "本地模型或 API 模型对一张图片产生的一条候选标注记录。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "image_id",
+    "processed_sha256",
+    "source_kind",
+    "model_id",
+    "prompt_version",
+    "annotation_schema_version",
+    "status",
+    "raw_response_path",
+    "annotation",
+    "error"
+  ],
+  "properties": {
+    "image_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "processed_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": ["local", "api"]
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "prompt_version": {
+      "const": "m1-shared-v1.0.3-draft"
+    },
+    "annotation_schema_version": {
+      "const": "1.2.0"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["succeeded", "failed"]
+    },
+    "raw_response_path": {
+      "type": ["string", "null"],
+      "maxLength": 500
+    },
+    "annotation": {
+      "oneOf": [
+        {"$ref": "./annotation_payload.schema.json"},
+        {"type": "null"}
+      ]
+    },
+    "error": {
+      "type": ["string", "null"],
+      "maxLength": 1000
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "succeeded"}},
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "annotation": {"$ref": "./annotation_payload.schema.json"},
+          "error": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"status": {"const": "failed"}},
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "annotation": {"type": "null"},
+          "error": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  ]
+}

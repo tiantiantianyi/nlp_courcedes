@@ -10,15 +10,15 @@
 
 本目录只包含代码，不包含原图、模型标注、冻结任务或人工评审数据库。这些内容不应提交到 Git。
 
-## 1. 最省事的用法：在现有服务器评审
+## 1. 在服务器评审
 
-如果你和 M1 开发者使用同一台服务器，不需要重新生成任务。30 张正式任务已经位于：
+如果已经生成冻结任务，任务目录可放在工作区的实验产物目录中，例如：
 
 ```text
-/home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_2
+<workspace>/artifacts/m1_human_audit
 ```
 
-服务当前可能已在 `tmux` 会话 `m1-audit-ui` 中运行。先检查：
+服务可放在 `tmux` 会话中运行。先检查：
 
 ```bash
 tmux list-sessions
@@ -29,18 +29,18 @@ curl http://127.0.0.1:8765/api/health
 
 ```bash
 python evaluation/m1_annotation_audit/m1_audit_server.py \
-  --audit-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_2 \
-  --workspace-root /home/xiaobo.xia/JiafengWu/agent \
+  --audit-dir <workspace>/artifacts/m1_human_audit \
+  --workspace-root <workspace> \
   --host 127.0.0.1 \
   --port 8765
 ```
 
-`--workspace-root` 必须是任务中图片相对路径的起点。现有任务记录的是 `data/train/...`，所以这里应指向 `/home/xiaobo.xia/JiafengWu/agent`，不能指向本仓库。
+`--workspace-root` 必须是任务中图片相对路径的起点。例如任务记录 `data/train/...` 时，该参数应指向包含 `data/` 的工作目录。
 
 在 Windows PowerShell 建立 SSH 本地转发：
 
 ```powershell
-ssh -N -L 8765:127.0.0.1:8765 xiaobo.xia@<服务器地址>
+ssh -N -L 8765:127.0.0.1:8765 <user>@<server>
 ```
 
 保持窗口运行，然后浏览器打开：
@@ -81,7 +81,7 @@ http://127.0.0.1:8765
 
 ```bash
 python evaluation/m1_annotation_audit/export_m1_audit.py \
-  --audit-dir /home/xiaobo.xia/JiafengWu/agent/artifacts/m1_human_audit/v0_2 \
+  --audit-dir <workspace>/artifacts/m1_human_audit \
   --reviewer '<网页中使用的评审者名称>'
 ```
 

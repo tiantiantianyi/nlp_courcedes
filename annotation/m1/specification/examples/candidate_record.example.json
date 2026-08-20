@@ -1,0 +1,133 @@
+{
+  "image_id": "1400",
+  "processed_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_kind": "local",
+  "model_id": "local-model-id-to-be-frozen",
+  "prompt_version": "m1-shared-v1.0.3-draft",
+  "annotation_schema_version": "1.2.0",
+  "status": "succeeded",
+  "raw_response_path": "raw/local/1400.json",
+  "annotation": {
+  "scene": {
+    "primary_type": "street_urban",
+    "secondary_types": ["people_activity", "transport"],
+    "media_type": "natural_image",
+    "sub_type_zh": "城市商业街道",
+    "environment": "outdoor"
+  },
+  "capture_visual": {
+    "time_of_day": "day",
+    "weather": "unknown",
+    "lighting": "natural",
+    "viewpoint": "eye_level",
+    "shot_scale": "wide",
+    "blur_level": "none"
+  },
+  "entities": [
+    {
+      "entity_id": "e1",
+      "entity_type": "building",
+      "name_zh": "沿街建筑",
+      "count": 1,
+      "count_exact": true,
+      "bbox_norm_1000": [40, 80, 720, 820],
+      "position_zone": "spans_multiple",
+      "salience": "primary",
+      "visibility": "clear",
+      "attributes": {
+        "colors_zh": ["灰色"],
+        "materials_zh": [],
+        "states_zh": [],
+        "action_zh": null,
+        "attire_zh": []
+      }
+    },
+    {
+      "entity_id": "e2",
+      "entity_type": "person",
+      "name_zh": "行人",
+      "count": null,
+      "count_exact": false,
+      "bbox_norm_1000": null,
+      "position_zone": "spans_multiple",
+      "salience": "secondary",
+      "visibility": "partial",
+      "attributes": {
+        "colors_zh": [],
+        "materials_zh": [],
+        "states_zh": [],
+        "action_zh": "沿街行走",
+        "attire_zh": []
+      }
+    },
+    {
+      "entity_id": "e3",
+      "entity_type": "vehicle",
+      "name_zh": "汽车",
+      "count": 1,
+      "count_exact": true,
+      "bbox_norm_1000": [680, 560, 930, 840],
+      "position_zone": "bottom_right",
+      "salience": "secondary",
+      "visibility": "clear",
+      "attributes": {
+        "colors_zh": ["白色"],
+        "materials_zh": [],
+        "states_zh": ["停在路边"],
+        "action_zh": null,
+        "attire_zh": []
+      }
+    }
+  ],
+  "ocr": [
+    {
+      "text_id": "t1",
+      "text_raw": "便利店",
+      "language": "zh",
+      "bbox_norm_1000": [180, 180, 330, 250],
+      "legibility": "high"
+    }
+  ],
+  "relations": [
+    {
+      "subject_id": "e2",
+      "predicate": "in_front_of",
+      "object_id": "e1",
+      "predicate_other_zh": null
+    },
+    {
+      "subject_id": "e3",
+      "predicate": "next_to",
+      "object_id": "e1",
+      "predicate_other_zh": null
+    }
+  ],
+  "event": {
+    "summary_zh": "多名行人在沿街建筑前行走，路边停着一辆汽车",
+    "evidence_entity_ids": ["e1", "e2", "e3"]
+  },
+  "subjective": {
+    "mood_terms_zh": ["日常"],
+    "palette_terms_zh": ["灰色", "白色"],
+    "aesthetic_score": 3,
+    "aesthetic_reason_zh": "主体和街道环境清晰，构图较为普通"
+  },
+  "captions": {
+    "short_zh": "行人经过有商店和车辆的城市街道。",
+    "dense_zh": "画面呈现一段城市商业街道，多名行人在沿街建筑前行走，右下方路边停着一辆白色汽车，店面可见“便利店”字样，整体为自然光下的日常街景。"
+  },
+  "uncertainties": [
+    {
+      "field_path": "/entities/1/count",
+      "reason": "count_unreliable",
+      "note_zh": "行人互相遮挡，无法可靠确定总数"
+    },
+    {
+      "field_path": "/capture_visual/weather",
+      "reason": "occlusion",
+      "note_zh": "天空和地面证据不足，无法判断天气"
+    }
+  ]
+  },
+  "error": null
+}
